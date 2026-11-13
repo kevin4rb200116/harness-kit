@@ -1,0 +1,58 @@
+{
+  "id": "python-unittest",
+  "language": "python",
+  "description": "Python 3.9+ con unittest y mutador propio sin dependencias.",
+  "paths": {
+    "source": "src",
+    "tests": "tests",
+    "features": "features",
+    "specs": "specs",
+    "progress": "progress",
+    "spec": "project-spec.md",
+    "feature_list": "feature_list.json",
+    "state": ".harness"
+  },
+  "commands": {
+    "check": "./init.sh",
+    "build": "python3 -m compileall -q src",
+    "test": "python3 -m unittest discover -s tests -v",
+    "mutation": "python3 tools/mutate.py {file}",
+    "clean": "find . -name __pycache__ -type d -prune -exec rm -rf {} +",
+    "verify": "./init.sh"
+  },
+  "shell_allow": {
+    "test": "python3 -m unittest *",
+    "verify": "./init.sh *",
+    "mutation": "python3 tools/mutate.py *"
+  },
+  "agent_forbidden": ["build", "clean"],
+  "mutation": {
+    "threshold": 100,
+    "scope": "touched_files",
+    "required": true,
+    "backend": "tools/mutate.py"
+  },
+  "contract": "any",
+  "globs": {
+    "source": ["src/**/*.py", "!src/**/__init__.py"],
+    "tests": ["tests/**/test_*.py"]
+  },
+  "documents": {
+    "architecture": "docs/architecture.md",
+    "conventions": "docs/conventions.md",
+    "verification": "docs/verification.md"
+  },
+  "scaffold": {
+    "files": {
+      "src/__init__.py": "",
+      "tests/__init__.py": ""
+    }
+  },
+  "gitignore": [
+    "__pycache__/",
+    "*.py[cod]",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".coverage"
+  ]
+}

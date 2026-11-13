@@ -1,0 +1,21 @@
+{
+  "project": "fixture-greet",
+  "rules": {
+    "one_feature_at_a_time": true,
+    "require_tests_to_close": true,
+    "require_approved_spec_to_implement": true,
+    "valid_status": ["pending", "spec_ready", "in_progress", "done", "blocked"],
+    "sdd_required_when": "feature has \"sdd\": true"
+  },
+  "features": [
+    {
+      "id": 1,
+      "name": "greet",
+      "title": "Saludo",
+      "description": "Función greet(name) que devuelve un saludo.",
+      "acceptance": ["greet('Ada') devuelve 'Hello, Ada!'"],
+      "sdd": true,
+      "status": "spec_ready"
+    }
+  ]
+}

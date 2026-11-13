@@ -1,0 +1,12 @@
+{
+  "id": "opencode",
+  "description": "OpenCode V2: siete agentes con permisos por rol y cuatro comandos slash.",
+  "render": [
+    { "source": "agents", "target": ".opencode/agents" },
+    { "source": "commands", "target": ".opencode/commands" }
+  ],
+  "config": {
+    "fragment": "opencode.fragment.json",
+    "target": "opencode.jsonc"
+  }
+}

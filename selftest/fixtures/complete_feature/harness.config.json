@@ -1,0 +1,24 @@
+{
+  "project": "fixture-greet",
+  "description": "Proyecto de juguete para los selftests del harness kit.",
+  "profile": "python-unittest",
+  "adapter": "generic",
+  "paths": {
+    "source": "src",
+    "tests": "tests",
+    "features": "features",
+    "specs": "specs",
+    "progress": "progress",
+    "spec": "project-spec.md",
+    "feature_list": "feature_list.json",
+    "state": ".harness"
+  },
+  "commands": {
+    "verify": "./init.sh",
+    "test": "python3 -m unittest discover -s tests -v",
+    "mutation": "python3 tools/mutate.py {file}"
+  },
+  "mutation": {
+    "threshold": 100
+  }
+}

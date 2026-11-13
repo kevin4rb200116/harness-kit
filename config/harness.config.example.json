@@ -1,0 +1,36 @@
+{
+  "project": "mi-proyecto",
+  "description": "Ejemplo de configuración del arnés. Copia este archivo como harness.config.json y ajústalo.",
+  "profile": "python-unittest",
+  "adapter": "generic",
+  "paths": {
+    "source": "src",
+    "tests": "tests",
+    "features": "features",
+    "specs": "specs",
+    "progress": "progress",
+    "spec": "project-spec.md",
+    "feature_list": "feature_list.json",
+    "state": ".harness"
+  },
+  "commands": {
+    "check": "./init.sh",
+    "build": "python3 -m compileall -q src",
+    "test": "python3 -m unittest discover -s tests -v",
+    "mutation": "python3 tools/mutate.py {file}",
+    "clean": "find . -name __pycache__ -type d -prune -exec rm -rf {} +",
+    "verify": "./init.sh"
+  },
+  "agent_forbidden": ["build", "clean"],
+  "mutation": {
+    "threshold": 100,
+    "scope": "touched_files",
+    "required": true,
+    "backend": "tools/mutate.py"
+  },
+  "documents": {
+    "architecture": "docs/architecture.md",
+    "conventions": "docs/conventions.md",
+    "verification": "docs/verification.md"
+  }
+}

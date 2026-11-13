@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://harness-kit/schemas/feature_list.schema.json",
+  "title": "feature_list.json",
+  "description": "Backlog del arnés SDD. Una sola feature en in_progress.",
+  "type": "object",
+  "required": ["project", "rules", "features"],
+  "properties": {
+    "project": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "object",
+      "required": ["valid_status"],
+      "properties": {
+        "one_feature_at_a_time": {
+          "type": "boolean",
+          "default": true
+        },
+        "require_tests_to_close": {
+          "type": "boolean",
+          "default": true
+        },
+        "require_approved_spec_to_implement": {
+          "type": "boolean",
+          "default": true
+        },
+        "valid_status": {
+          "type": "array",
+          "items": {
+            "enum": ["pending", "spec_ready", "in_progress", "done", "blocked"]
+          },
+          "minItems": 5,
+          "uniqueItems": true
+        },
+        "sdd_required_when": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "title", "status"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "Identificador estable; coincide con specs/<name>/ y features/<name>.feature"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "acceptance": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "sdd": {
+            "type": "boolean",
+            "default": false,
+            "description": "Si es true, la feature recorre el pipeline completo con specs y .feature"
+          },
+          "status": {
+            "enum": ["pending", "spec_ready", "in_progress", "done", "blocked"]
+          },
+          "blocked_reason": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true,
+        "if": {
+          "properties": {
+            "status": {
+              "const": "blocked"
+            }
+          }
+        },
+        "then": {
+          "required": ["blocked_reason"]
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

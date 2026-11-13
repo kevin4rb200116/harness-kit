@@ -1,0 +1,8 @@
+{
+  "feature": "greet",
+  "verdict": "APPROVED",
+  "traceability": {
+    "R1": "@s1 → tests/test_greet.py::TestGreet.test_greet_with_name",
+    "R2": "@s2 → tests/test_greet.py::TestGreet.test_greet_with_empty_name"
+  }
+}
