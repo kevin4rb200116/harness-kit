@@ -9,6 +9,9 @@ Uso:
     python3 tools/mutate.py src/<archivo>.py
     python3 tools/mutate.py src/<archivo>.py --max 80
 
+Desde el host, ejecútalo dentro del contenedor del perfil:
+    docker compose run --rm app python3 tools/mutate.py src/<archivo>.py
+
 Diseño:
 - Trabaja a nivel de *token* (módulo `tokenize`), así que NUNCA muta el
   contenido de strings ni comentarios: solo operadores, palabras clave,

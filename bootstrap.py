@@ -167,6 +167,7 @@ def adapter_values(
     commands = profile.get("commands", {})
     shell_allow = profile.get("shell_allow", {})
     paths = profile.get("paths", {})
+    documents = profile.get("documents", {})
 
     def shell(key: str) -> str:
         pattern = shell_allow.get(key)
@@ -180,8 +181,11 @@ def adapter_values(
     return {
         "PROJECT": project,
         "PROFILE": profile_id,
+        "PROFILE_DESCRIPTION": profile.get("description", ""),
         "ADAPTER": adapter_id,
         "VERSION": VERSION,
+        "COMMAND_BUILD": commands.get("build", ""),
+        "COMMAND_CLEAN": commands.get("clean", ""),
         "COMMAND_TEST": commands.get("test", ""),
         "COMMAND_VERIFY": commands.get("verify", "./init.sh"),
         "COMMAND_MUTATION": commands.get("mutation", ""),
@@ -194,7 +198,11 @@ def adapter_values(
         "PATHS_SPECS": paths.get("specs", "specs"),
         "PATHS_PROGRESS": paths.get("progress", "progress"),
         "PATHS_SPEC": paths.get("spec", "project-spec.md"),
+        "PATHS_FEATURE_LIST": paths.get("feature_list", "feature_list.json"),
         "PATHS_STATE": paths.get("state", ".harness"),
+        "DOCS_ARCHITECTURE": documents.get("architecture", "docs/architecture.md"),
+        "DOCS_CONVENTIONS": documents.get("conventions", "docs/conventions.md"),
+        "DOCS_VERIFICATION": documents.get("verification", "docs/verification.md"),
     }
 
 
@@ -512,6 +520,7 @@ def vendor_harness(target: Path, profile_id: str, adapter_id: str) -> Path:
     write_text(harness_dir / "GENERATED.md", generated_marker(profile_id, adapter_id))
     (harness_dir / "bin" / "harness.py").chmod(0o755)
     (harness_dir / "bin" / "stack_check.py").chmod(0o755)
+    (harness_dir / "bin" / "run_verb.py").chmod(0o755)
     return harness_dir
 
 
@@ -575,14 +584,14 @@ def init_project(
 
     print("[5/6] Creando artefactos del proyecto")
     templates = KIT_ROOT / "core" / "templates"
-    replacements = (project, profile_id, adapter_id)
+    values = adapter_values(project, profile_id, adapter_id, profile)
 
     agents = target / "AGENTS.md"
     if not agents.exists():
         write_text(
             agents,
-            render_template(
-                (templates / "AGENTS.md").read_text(encoding="utf-8"), *replacements
+            render_adapter_text(
+                (templates / "AGENTS.md").read_text(encoding="utf-8"), values
             ),
         )
         print("      creado AGENTS.md")
@@ -591,9 +600,8 @@ def init_project(
     if not spec.exists():
         write_text(
             spec,
-            render_template(
-                (templates / "project-spec.md").read_text(encoding="utf-8"),
-                *replacements,
+            render_adapter_text(
+                (templates / "project-spec.md").read_text(encoding="utf-8"), values
             ),
         )
         print("      creado project-spec.md")
@@ -642,6 +650,8 @@ def init_project(
         if not destination.exists():
             write_text(destination, content)
 
+    copy_scaffold_files(target, profile_dir, profile, profile_id)
+
     for relative in ("features", "specs"):
         directory = target / profile.get("paths", {}).get(relative, relative)
         if directory.is_dir() and not any(directory.iterdir()):
@@ -687,6 +697,22 @@ def backfill_commands(target: Path, profile: dict) -> None:
         print(f"      harness.config.json: +{', +'.join(sorted(added))}")
 
 
+def copy_scaffold_files(
+    target: Path, profile_dir: Path, profile: dict, profile_id: str
+) -> None:
+    """Copia los archivos de ``scaffold.copy`` que falten, sin pisar los existentes."""
+    for relative in profile.get("scaffold", {}).get("copy", []):
+        source = profile_dir / relative
+        destination = target / relative
+        if not source.is_file():
+            raise BootstrapError(
+                f"el perfil {profile_id} declara scaffold.copy '{relative}' pero no existe"
+            )
+        if not destination.exists():
+            write_text(destination, source.read_text(encoding="utf-8"))
+            print(f"      creado {relative}")
+
+
 def render_target(target: Path) -> None:
     config_path = target / "harness.config.json"
     if not config_path.is_file():
@@ -704,9 +730,10 @@ def render_target(target: Path) -> None:
 
     print(f"[1/4] Re-vendorizando harness/ (kit {VERSION})")
     vendor_harness(target, profile_id, adapter_id)
-    print("[2/4] Regenerando init.sh y tools/ y completando comandos")
+    print("[2/4] Regenerando init.sh, tools/ y artefactos del perfil")
     backfill_commands(target, profile)
     install_generated_files(target, profile_dir, profile_id)
+    copy_scaffold_files(target, profile_dir, profile, profile_id)
     print(f"[3/4] Renderizando adapter {adapter_id}")
     sync_adapters(target, project, profile_id, adapter_id, profile)
     print("[4/4] Hecho")

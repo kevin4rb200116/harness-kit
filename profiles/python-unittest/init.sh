@@ -18,20 +18,30 @@ fail() { printf "${RED}[FAIL]${NC}  %s\n" "$1"; }
 
 EXIT_CODE=0
 
-echo "── 1. Entorno Python ──────────────────────────────────"
+echo "── 1. Entorno: arnés y contenedor ────────────────────"
 
 if ! command -v python3 >/dev/null 2>&1; then
-  fail "python3 no está instalado"
+  fail "python3 no está instalado (lo necesita el arnés)"
   exit 1
 fi
 ok "python3 -> $(python3 --version)"
 
 PY_VERSION_OK=$(python3 -c 'import sys; print(int(sys.version_info >= (3, 9)))')
 if [ "$PY_VERSION_OK" != "1" ]; then
-  fail "se requiere Python >= 3.9"
+  fail "se requiere Python >= 3.9 para el arnés"
   exit 1
 fi
 ok "versión de Python compatible"
+
+if ! command -v docker >/dev/null 2>&1; then
+  fail "docker no está instalado (el stack corre en contenedor)"
+  exit 1
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  fail "docker compose no está disponible"
+  exit 1
+fi
+ok "docker compose disponible"
 
 echo ""
 echo "── 2. Archivos base del arnés ─────────────────────────"
@@ -66,18 +76,25 @@ echo "── 4. Documentos del proyecto ─────────────�
 
 for f in docs/architecture.md docs/conventions.md docs/verification.md; do
   if [ -f "$f" ] && grep -q "TODO" "$f"; then
-    warn "$f todavía contiene TODO: el judge revisará contra un estándar incompleto"
+    if [ "$f" = "docs/architecture.md" ]; then
+      warn "$f contiene TODO: next devolverá la fase architecture; ejecuta /architecture"
+    else
+      warn "$f todavía contiene TODO: el judge revisará contra un estándar incompleto"
+    fi
   fi
 done
 
 echo ""
-echo "── 5. Tests ───────────────────────────────────────────"
+echo "── 5. Tests (contenedor) ──────────────────────────────"
 
 if [ -d tests ] && find tests -name 'test_*.py' -print -quit | grep -q .; then
-  if python3 -m unittest discover -s tests -v 2>&1; then
-    ok "todos los tests pasan"
+  if ! docker compose build --quiet; then
+    fail "no se pudo construir la imagen; revisa Dockerfile y compose.yaml"
+    EXIT_CODE=1
+  elif python3 harness/bin/run_verb.py test; then
+    ok "todos los tests pasan (contenedor)"
   else
-    fail "hay tests rotos"
+    fail "hay tests rotos en el contenedor"
     EXIT_CODE=1
   fi
 else

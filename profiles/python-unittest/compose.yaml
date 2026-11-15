@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    # Los archivos que cree el contenedor quedan a nombre del usuario del
+    # host. Si tu uid/gid no es 1000, exporta HARNESS_UID/HARNESS_GID.
+    user: "${HARNESS_UID:-1000}:${HARNESS_GID:-1000}"
+    init: true

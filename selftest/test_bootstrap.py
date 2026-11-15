@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -73,6 +74,7 @@ class BootstrapTest(unittest.TestCase):
             "progress/history.md",
             "harness/bin/harness.py",
             "harness/bin/stack_check.py",
+            "harness/bin/run_verb.py",
             "harness/process/workflow.md",
             "harness/process/spec.md",
             "harness/process/traceability.md",
@@ -88,7 +90,10 @@ class BootstrapTest(unittest.TestCase):
             "docs/conventions.md",
             "docs/verification.md",
             "init.sh",
+            "compose.yaml",
+            "Dockerfile",
             "tools/mutate.py",
+            "tools/clean.sh",
             "src/__init__.py",
             "tests/__init__.py",
         ]
@@ -126,8 +131,21 @@ class BootstrapTest(unittest.TestCase):
             self.assertTrue(
                 config["commands"].get(verb), f"commands.{verb} vacío o ausente"
             )
+        self.assertEqual(config["commands"]["build"], "docker compose build")
+        self.assertTrue(
+            config["commands"]["test"].startswith(
+                "docker compose run --rm app python3 -m unittest"
+            )
+        )
+        self.assertTrue(
+            config["commands"]["mutation"].startswith(
+                "docker compose run --rm app python3 tools/mutate.py"
+            )
+        )
+        self.assertEqual(config["commands"]["clean"], "bash tools/clean.sh")
         self.assertEqual(config["agent_forbidden"], ["build", "clean"])
 
+    @unittest.skipUnless(shutil.which("docker"), "docker no disponible")
     def test_init_runs_the_stack_contract(self) -> None:
         self.assert_ok(self.init())
         result = subprocess.run(
@@ -188,6 +206,7 @@ class BootstrapTest(unittest.TestCase):
 
     # -- proyecto generado ----------------------------------------------
 
+    @unittest.skipUnless(shutil.which("docker"), "docker no disponible")
     def test_scaffolded_init_sh_is_green(self) -> None:
         self.assert_ok(self.init())
         result = subprocess.run(
@@ -248,6 +267,30 @@ class BootstrapTest(unittest.TestCase):
         self.assertNotEqual(workflow.read_text(encoding="utf-8"), "pisoteado\n")
         self.assert_ok(self.bootstrap("check", "--target", str(self.target)))
 
+    def test_render_preserves_compose_and_dockerfile(self) -> None:
+        self.assert_ok(self.init())
+        compose = self.target / "compose.yaml"
+        dockerfile = self.target / "Dockerfile"
+        compose.write_text("# compose editado\n", encoding="utf-8")
+        dockerfile.write_text("# Dockerfile editado\n", encoding="utf-8")
+
+        self.assert_ok(self.bootstrap("render", "--target", str(self.target)))
+
+        self.assertEqual(compose.read_text(encoding="utf-8"), "# compose editado\n")
+        self.assertEqual(
+            dockerfile.read_text(encoding="utf-8"), "# Dockerfile editado\n"
+        )
+
+    def test_render_restores_missing_compose_files(self) -> None:
+        self.assert_ok(self.init())
+        (self.target / "compose.yaml").unlink()
+        (self.target / "Dockerfile").unlink()
+
+        self.assert_ok(self.bootstrap("render", "--target", str(self.target)))
+
+        self.assertTrue((self.target / "compose.yaml").is_file())
+        self.assertTrue((self.target / "Dockerfile").is_file())
+
     def test_render_backfills_missing_verbs(self) -> None:
         self.assert_ok(self.init())
         config_path = self.target / "harness.config.json"
@@ -260,7 +303,7 @@ class BootstrapTest(unittest.TestCase):
         self.assert_ok(self.bootstrap("render", "--target", str(self.target)))
 
         updated = json.loads(config_path.read_text(encoding="utf-8"))
-        self.assertEqual(updated["commands"]["build"], "python3 -m compileall -q src")
+        self.assertEqual(updated["commands"]["build"], "docker compose build")
         self.assertTrue(updated["commands"]["clean"])
         self.assertEqual(updated["agent_forbidden"], ["build", "clean"])
         self.assert_ok(self.bootstrap("check", "--target", str(self.target)))

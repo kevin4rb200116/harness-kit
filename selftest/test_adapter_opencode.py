@@ -168,7 +168,9 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assertIn('resource: "src/*"', text)
         self.assertIn('resource: "tests/*"', text)
         self.assertIn('resource: "specs/*/tasks.md"', text)
-        self.assertIn('resource: "python3 -m unittest *"', text)
+        self.assertIn(
+            'resource: "docker compose run --rm app python3 -m unittest *"', text
+        )
         self.assertIn('resource: "./init.sh *"', text)
 
     def test_profile_keeps_human_verbs_out_of_the_agent_allowlist(self) -> None:

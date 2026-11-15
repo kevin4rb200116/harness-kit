@@ -9,7 +9,7 @@ Toda función pública de `src/` tiene al menos un test en `tests/` que cubre
 el camino feliz y, si puede fallar, al menos un camino de error.
 
 ```bash
-python3 -m unittest discover -s tests -v
+docker compose run --rm app python3 -m unittest discover -s tests -v
 ```
 
 ## Nivel 2 — Integración (obligatorio para features de UI o CLI)
@@ -32,6 +32,10 @@ with tempfile.TemporaryDirectory() as tmp:
     assert output == ""
 ```
 
+Este ejemplo se ejecuta **dentro del contenedor** (es el entorno de los
+tests). Si lo lanzas desde el host, envuélvelo con
+`docker compose run --rm app ...`.
+
 Adapta el comando y la variable de entorno al contrato del proyecto.
 
 ## Nivel 3 — Smoke test (recomendado)
@@ -47,10 +51,10 @@ tal cual (los argumentos finales pueden variar).
 
 ```bash
 python3 harness/bin/stack_check.py
-python3 -m compileall -q src
-python3 -m unittest discover -s tests -v
-python3 tools/mutate.py src/<archivo>.py
-find . -name __pycache__ -type d -prune -exec rm -rf {} +
+docker compose build
+docker compose run --rm app python3 -m unittest discover -s tests -v
+docker compose run --rm app python3 tools/mutate.py src/<archivo>.py
+bash tools/clean.sh
 ```
 
 Cada verbo es **una sola orden**: la allowlist del agente son cadenas
@@ -58,6 +62,9 @@ literales y un pipe o un `;` deniega el comando entero. Los placeholders
 `{file}` y `<archivo>` son argumentos, no operadores: no cuentan como
 comando compuesto.
 
+El arnés (`harness.py`, `stack_check.py`, `run_verb.py`) corre en el host y
+solo necesita Python 3.9+. El stack del proyecto (`test`, `mutation`) corre
+en la imagen de `compose.yaml`; el host solo necesita Docker Compose.
 `build` y `clean` los ejecuta el humano a cargo o el flujo de integración
 (`agent_forbidden` en `harness.config.json`); ningún agente los tiene en su
 allowlist. `clean` es destructivo: no debe correr dentro de una sesión de
@@ -69,13 +76,14 @@ agente.
 ./init.sh
 ```
 
-`init.sh` valida el estado con `harness.py validate`, ejecuta los tests y
-comprueba los archivos base. Debe terminar con exit code 0.
+`init.sh` valida el estado con `harness.py validate`, construye la imagen,
+ejecuta los tests del contenedor y comprueba el contrato del stack. Debe
+terminar con exit code 0.
 
 ## Mutación
 
 ```bash
-python3 tools/mutate.py src/<archivo>.py
+docker compose run --rm app python3 tools/mutate.py src/<archivo>.py
 ```
 
 El umbral vive en `harness.config.json` (`mutation.threshold`). El

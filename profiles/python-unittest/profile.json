@@ -1,7 +1,7 @@
 {
   "id": "python-unittest",
   "language": "python",
-  "description": "Python 3.9+ con unittest y mutador propio sin dependencias.",
+  "description": "Python 3.9+ con unittest; el stack corre en Docker Compose y el arnés en el host.",
   "paths": {
     "source": "src",
     "tests": "tests",
@@ -14,16 +14,16 @@
   },
   "commands": {
     "check": "./init.sh",
-    "build": "python3 -m compileall -q src",
-    "test": "python3 -m unittest discover -s tests -v",
-    "mutation": "python3 tools/mutate.py {file}",
-    "clean": "find . -name __pycache__ -type d -prune -exec rm -rf {} +",
+    "build": "docker compose build",
+    "test": "docker compose run --rm app python3 -m unittest discover -s tests -v",
+    "mutation": "docker compose run --rm app python3 tools/mutate.py {file}",
+    "clean": "bash tools/clean.sh",
     "verify": "./init.sh"
   },
   "shell_allow": {
-    "test": "python3 -m unittest *",
+    "test": "docker compose run --rm app python3 -m unittest *",
     "verify": "./init.sh *",
-    "mutation": "python3 tools/mutate.py *"
+    "mutation": "docker compose run --rm app python3 tools/mutate.py *"
   },
   "agent_forbidden": ["build", "clean"],
   "mutation": {
@@ -46,7 +46,8 @@
     "files": {
       "src/__init__.py": "",
       "tests/__init__.py": ""
-    }
+    },
+    "copy": ["compose.yaml", "Dockerfile"]
   },
   "gitignore": [
     "__pycache__/",

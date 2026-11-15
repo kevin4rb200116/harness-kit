@@ -17,10 +17,10 @@ import stack_check  # noqa: E402  (import después de ajustar sys.path)
 
 COMMANDS = {
     "check": "./init.sh",
-    "build": "python3 -m compileall -q src",
-    "test": "python3 -m unittest discover -s tests -v",
-    "mutation": "python3 tools/mutate.py {file}",
-    "clean": "python3 -m compileall -q -f src",
+    "build": "docker compose build",
+    "test": "docker compose run --rm app python3 -m unittest discover -s tests -v",
+    "mutation": "docker compose run --rm app python3 tools/mutate.py {file}",
+    "clean": "bash tools/clean.sh",
 }
 
 DOC_VERIFICATION = """# Verificación
@@ -29,10 +29,10 @@ Comandos reales del stack:
 
 ```bash
 ./init.sh
-python3 -m compileall -q src
-python3 -m unittest discover -s tests -v
-python3 tools/mutate.py src/notes.py
-python3 -m compileall -q -f src
+docker compose build
+docker compose run --rm app python3 -m unittest discover -s tests -v
+docker compose run --rm app python3 tools/mutate.py src/notes.py
+bash tools/clean.sh
 ```
 """
 
@@ -129,13 +129,21 @@ class StackCheckTest(unittest.TestCase):
         self.assert_fails("orden simple")
 
     def test_placeholder_is_not_a_compound_command(self) -> None:
-        self.write_config({**COMMANDS, "mutation": "python3 tools/mutate.py {file}"})
+        self.write_config(
+            {
+                **COMMANDS,
+                "mutation": "docker compose run --rm app python3 tools/mutate.py {file}",
+            }
+        )
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_angle_placeholder_is_not_a_compound_command(self) -> None:
         self.write_config(
-            {**COMMANDS, "mutation": "python3 tools/mutate.py <archivo>"}
+            {
+                **COMMANDS,
+                "mutation": "docker compose run --rm app python3 tools/mutate.py <archivo>",
+            }
         )
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stdout)
