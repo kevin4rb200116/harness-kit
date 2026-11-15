@@ -60,6 +60,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "mutation": {
         "threshold": 100,
     },
+    "documents": {
+        "architecture": "docs/architecture.md",
+        "conventions": "docs/conventions.md",
+        "verification": "docs/verification.md",
+    },
 }
 
 
@@ -132,6 +137,48 @@ def unchecked_tasks(text: str) -> list[str]:
     return re.findall(r"(?m)^\s*[-*]\s+\[ \].*$", text)
 
 
+def has_todo_marker(text: str) -> bool:
+    """Detecta marcadores ``TODO`` sin confundirlos con la palabra citada."""
+    text = re.sub(r"(?ms)^```.*?^```", "", text)
+    text = re.sub(r"`[^`\n]*`", "", text)
+    for line in text.splitlines():
+        stripped = line.strip().lstrip(">#*-+ ").strip()
+        if stripped.startswith("TODO"):
+            return True
+        if re.search(r"\bTODO\s*:", line):
+            return True
+    return False
+
+
+def as_float(value: Any, default: float = 0.0) -> float:
+    """Convierte números o cadenas tipo ``"94.12%"`` sin romper la puerta."""
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.strip().rstrip("%").replace(",", ".")
+        try:
+            return float(cleaned)
+        except ValueError:
+            return default
+    return default
+
+
+def report_reason(report: dict) -> str:
+    """Extrae un motivo legible de un informe del judge."""
+    parts: list[str] = []
+    reason = report.get("reason")
+    if reason:
+        parts.append(str(reason))
+    notes = report.get("notes")
+    if isinstance(notes, list):
+        parts.extend(str(note) for note in notes if str(note).strip())
+    elif notes:
+        parts.append(str(notes))
+    return "; ".join(parts) or "sin motivo detallado"
+
+
 # ── proyecto ──────────────────────────────────────────────────────────────
 
 
@@ -170,6 +217,9 @@ class Project:
     @property
     def state_dir(self) -> Path:
         return self.root / self.paths["state"]
+
+    def document(self, key: str) -> Path:
+        return self.root / self.config["documents"][key]
 
     def load_state(self) -> dict:
         if not self.feature_list_path.is_file():
@@ -311,6 +361,70 @@ class Project:
             return None
         return path.read_text(encoding="utf-8")
 
+    def tdd_report_path(self, feature: dict) -> Path:
+        return self.progress_path("tdd", feature)
+
+    def tdd_report_errors(self, feature: dict) -> list[str]:
+        """El informe TDD debe existir y contener el mapa R → @s → test."""
+        if not self.is_sdd(feature):
+            return []
+        path = self.tdd_report_path(feature)
+        if not path.is_file():
+            return [
+                f"falta {self.rel(path)} (informe TDD con el mapa "
+                "R<n> → @sN → test)"
+            ]
+        text = path.read_text(encoding="utf-8")
+        errors: list[str] = []
+        if not re.search(r"\bR\d+\b", text):
+            errors.append(f"{self.rel(path)} no contiene ningún R<n>")
+        if not re.search(r"@s\d+\b", text):
+            errors.append(f"{self.rel(path)} no contiene ningún @sN")
+        if not re.search(r"(?i)test", text):
+            errors.append(f"{self.rel(path)} no referencia ningún test")
+        return errors
+
+    def tdd_report_ready(self, feature: dict) -> bool:
+        return not self.tdd_report_errors(feature)
+
+    def tdd_is_newer_than(self, feature: dict, kind: str) -> bool:
+        """El informe TDD se reescribe al cerrar cada ronda de TDD."""
+        report = self.report_path(kind, feature)
+        tdd = self.tdd_report_path(feature)
+        if not report.is_file() or not tdd.is_file():
+            return False
+        return tdd.stat().st_mtime_ns > report.stat().st_mtime_ns
+
+    def mutation_ok(self, report: dict) -> bool:
+        if str(report.get("verdict", "")).upper() != "PASS":
+            return False
+        threshold = as_float(
+            self.config.get("mutation", {}).get("threshold", 100), 100
+        )
+        return as_float(report.get("score", 0)) >= threshold
+
+    def repair_details(self, feature: dict) -> list[str]:
+        """Motivos legibles del informe vigente que bloquea la fase."""
+        judge = self.report("judge", feature)
+        if judge is not None:
+            verdict = str(judge.get("verdict", "")).upper()
+            if verdict != "APPROVED" and not self.tdd_is_newer_than(feature, "judge"):
+                return [f"judge {verdict or 'sin veredicto'}: {report_reason(judge)}"]
+        mutation = self.report("mutation", feature)
+        if mutation is not None and not self.mutation_ok(mutation):
+            threshold = as_float(
+                self.config.get("mutation", {}).get("threshold", 100), 100
+            )
+            survived = mutation.get("survived") or []
+            if not isinstance(survived, list):
+                survived = [survived]
+            detail = ", ".join(str(item) for item in survived) or "no listados"
+            return [
+                f"mutación FAIL: score {as_float(mutation.get('score', 0)):g} "
+                f"< umbral {threshold:g}; supervivientes: {detail}"
+            ]
+        return []
+
     def rel(self, path: Path) -> str:
         try:
             return str(path.relative_to(self.root))
@@ -360,6 +474,7 @@ class Project:
         if target == "done":
             if sdd:
                 errors.extend(self.spec_errors(feature))
+                errors.extend(self.tdd_report_errors(feature))
                 tasks_text = self.tasks_file(feature)
                 if tasks_text is not None:
                     pending = unchecked_tasks(tasks_text)
@@ -386,7 +501,9 @@ class Project:
                     f"(verdict={judge.get('verdict')!r})"
                 )
             mutation = self.report("mutation", feature)
-            threshold = int(self.config.get("mutation", {}).get("threshold", 100))
+            threshold = as_float(
+                self.config.get("mutation", {}).get("threshold", 100), 100
+            )
             if mutation is None:
                 errors.append(
                     f"falta {self.rel(self.report_path('mutation', feature))}"
@@ -396,9 +513,9 @@ class Project:
                     f"el informe de mutación no está PASS "
                     f"(verdict={mutation.get('verdict')!r})"
                 )
-            elif float(mutation.get("score", 0)) < threshold:
+            elif as_float(mutation.get("score", 0)) < threshold:
                 errors.append(
-                    f"score de mutación {mutation.get('score')} < umbral {threshold}"
+                    f"score de mutación {mutation.get('score')} < umbral {threshold:g}"
                 )
             if not errors:
                 ok, output = self.verify()
@@ -436,11 +553,20 @@ class Project:
 
     # -- fases ------------------------------------------------------------
 
+    def architecture_pending(self) -> bool:
+        """La arquitectura falta o conserva un marcador ``TODO`` sin resolver."""
+        path = self.document("architecture")
+        if not path.is_file():
+            return True
+        return has_todo_marker(path.read_text(encoding="utf-8"))
+
     def phase(self, feature: dict) -> str:
         status = self.status(feature)
         if status == "blocked":
             return "blocked"
         if status == "pending":
+            if self.architecture_pending():
+                return "architecture"
             if not self.is_sdd(feature):
                 return "mark_spec_ready"
             if self.spec_errors(feature):
@@ -456,12 +582,26 @@ class Project:
             tasks_text = self.tasks_file(feature)
             if tasks_text is not None and unchecked_tasks(tasks_text):
                 return "tdd"
+            if not self.tdd_report_ready(feature):
+                return "tdd"
             judge = self.report("judge", feature)
-            if judge is None or str(judge.get("verdict", "")).upper() != "APPROVED":
+            if judge is None:
                 return "judge"
+            if str(judge.get("verdict", "")).upper() != "APPROVED":
+                if self.tdd_is_newer_than(feature, "judge"):
+                    return "judge"
+                return "repair"
             mutation = self.report("mutation", feature)
-            if mutation is None or str(mutation.get("verdict", "")).upper() != "PASS":
+            if mutation is None:
                 return "mutation"
+            if not self.mutation_ok(mutation):
+                if self.tdd_is_newer_than(feature, "judge"):
+                    # El TDD reparó después del judge: hay que volver a juzgar.
+                    return "judge"
+                if self.tdd_is_newer_than(feature, "mutation"):
+                    # El judge ya re-aprobó: la mutación es de la ronda anterior.
+                    return "mutation"
+                return "repair"
             return "done"
         if status == "done":
             return "done"
@@ -521,7 +661,10 @@ def cmd_status(project: Project, args: argparse.Namespace) -> int:
     active = project.active_feature(data)
     print("")
     if active is None:
-        print("No hay features pendientes. Todo cerrado.")
+        if project.architecture_pending():
+            print("No hay features todavía. Falta la arquitectura: /architecture")
+        else:
+            print("No hay features pendientes. Todo cerrado.")
     else:
         print(
             f"Siguiente: feature {active.get('id')} ({project.name(active)}) "
@@ -531,6 +674,13 @@ def cmd_status(project: Project, args: argparse.Namespace) -> int:
 
 
 PHASE_HINTS = {
+    "architecture": [
+        "La arquitectura falta o sigue con un marcador TODO:.",
+        "Detente y pide al humano:",
+        "/architecture",
+        "Cierra docs/architecture.md (capas, fronteras, errores, calidad)",
+        "antes de abrir la spec de la primera feature.",
+    ],
     "spec": [
         "Conversa la spec con el humano y escribe project-spec.md y",
         "specs/<name>/{requirements,design,tasks}.md (EARS, R<n>, T<n>).",
@@ -555,7 +705,8 @@ PHASE_HINTS = {
     ],
     "tdd": [
         "Implementa tasks.md con Rojo → Verde → Refactor, un test a la vez.",
-        "Marca cada task como [x] al terminarla.",
+        "Marca cada task como [x] al terminarla y reescribe",
+        "progress/tdd_<name>.md con el mapa R<n> → @sN → test.",
     ],
     "judge": [
         "Ejecuta el rol judge y escribe:",
@@ -564,6 +715,12 @@ PHASE_HINTS = {
     "mutation": [
         "Ejecuta el rol mutation_tester y escribe:",
         ".harness/reports/mutation_<name>.json  {\"verdict\": \"PASS\", \"score\": ...}",
+    ],
+    "repair": [
+        "La última revisión falló (judge REJECTED o mutación FAIL).",
+        "Relanza tdd_craftsman con el id/name y los motivos del informe.",
+        "Debe corregir tests/código y reescribir progress/tdd_<name>.md.",
+        "No bajes el umbral de mutación ni edites el mutador.",
     ],
     "done": [
         "Todos los artefactos están listos. Cierra la feature:",
@@ -576,11 +733,38 @@ PHASE_HINTS = {
 }
 
 
+def phase_hints(project: Project, feature: dict, phase: str) -> list[str]:
+    """Pistas estáticas + el hueco concreto que bloquea la fase."""
+    hints = list(PHASE_HINTS.get(phase, []))
+    if phase == "tdd":
+        holes = project.tdd_report_errors(feature)
+        if holes:
+            hints = [
+                "Implementa tasks.md y cierra el informe TDD antes de judge.",
+                "Relanza tdd_craftsman y exige reescribir",
+                "progress/tdd_<name>.md con el mapa R<n> → @sN → test.",
+                *[f"- {hole}" for hole in holes],
+            ]
+    elif phase == "repair":
+        details = project.repair_details(feature)
+        if details:
+            hints.append("Motivo vigente:")
+            hints.extend(f"- {detail}" for detail in details)
+    return hints
+
+
 def cmd_next(project: Project, args: argparse.Namespace) -> int:
     data = project.load_state()
     active = project.active_feature(data)
     if active is None:
-        payload = {"phase": "all_done", "feature": None, "hints": []}
+        if project.architecture_pending():
+            payload = {
+                "phase": "architecture",
+                "feature": None,
+                "hints": PHASE_HINTS["architecture"],
+            }
+        else:
+            payload = {"phase": "all_done", "feature": None, "hints": []}
     else:
         phase = project.phase(active)
         payload = {
@@ -590,13 +774,18 @@ def cmd_next(project: Project, args: argparse.Namespace) -> int:
                 "name": project.name(active),
                 "status": project.status(active),
             },
-            "hints": PHASE_HINTS.get(phase, []),
+            "hints": phase_hints(project, active, phase),
         }
     if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
     if payload["feature"] is None:
-        print("No hay features pendientes. Todo cerrado.")
+        if payload["phase"] == "architecture":
+            print("No hay features todavía, pero la arquitectura no está definida.")
+            for hint in payload["hints"]:
+                print("  " + hint)
+        else:
+            print("No hay features pendientes. Todo cerrado.")
         return 0
     print(
         f"Siguiente: feature {payload['feature']['id']} "
@@ -739,7 +928,10 @@ def validate_reports(
     project: Project, feature: dict, fid: str, name: str
 ) -> list[str]:
     """Valida los informes machine-readable que exige `done`."""
-    errors: list[str] = []
+    errors: list[str] = [
+        f"feature {fid} ({name}): {error}"
+        for error in project.tdd_report_errors(feature)
+    ]
     judge = project.report("judge", feature)
     if judge is None:
         errors.append(f"feature {fid} ({name}): falta informe del judge")
@@ -749,7 +941,7 @@ def validate_reports(
             f"({judge.get('verdict')!r})"
         )
     mutation = project.report("mutation", feature)
-    threshold = int(project.config.get("mutation", {}).get("threshold", 100))
+    threshold = as_float(project.config.get("mutation", {}).get("threshold", 100), 100)
     if mutation is None:
         errors.append(f"feature {fid} ({name}): falta informe de mutación")
     elif str(mutation.get("verdict", "")).upper() != "PASS":
@@ -757,10 +949,10 @@ def validate_reports(
             f"feature {fid} ({name}): mutación no PASS "
             f"({mutation.get('verdict')!r})"
         )
-    elif float(mutation.get("score", 0)) < threshold:
+    elif as_float(mutation.get("score", 0)) < threshold:
         errors.append(
             f"feature {fid} ({name}): score de mutación "
-            f"{mutation.get('score')} < umbral {threshold}"
+            f"{mutation.get('score')} < umbral {threshold:g}"
         )
     return errors
 

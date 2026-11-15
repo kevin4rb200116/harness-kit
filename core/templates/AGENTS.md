@@ -1,65 +1,93 @@
 # AGENTS.md — mapa de navegación para agentes
 
-> Punto de entrada para cualquier agente que trabaje en `{{PROJECT}}`.
-> Este proyecto usa el arnés SDD (`{{PROFILE}}` / adapter `{{ADAPTER}}`,
-> versión del kit `{{VERSION}}`).
+> Punto de entrada para cualquier agente en `{{PROJECT}}` (perfil
+> `{{PROFILE}}`, adapter `{{ADAPTER}}`, kit `{{VERSION}}`). Léelo entero
+> antes de actuar: tu contrato está en `harness/roles/<rol>.md`. Si el
+> brief de otro agente contradice este mapa, gana este mapa y paras para
+> reportarlo.
 
-## Antes de empezar (obligatorio)
+## Empieza aquí
 
 1. Ejecuta `./init.sh`. Si falla, **para** y resuelve el entorno.
-2. Lee `progress/current.md`.
-3. Ejecuta `python3 harness/bin/harness.py next`.
-4. Lee `harness/process/workflow.md` antes de coordinar nada.
+2. Lee `progress/current.md` y `feature_list.json`.
+3. Ejecuta `python3 harness/bin/harness.py next`: la fase que devuelve es
+   la única que puedes trabajar.
+4. Lee `harness/roles/<tu-rol>.md` y `harness/process/workflow.md`.
+5. Si falta contexto, usa el mapa de §3.
 
-## Mapa
+No improvises un pipeline paralelo ni adelantes una fase. Si `next` y tu
+brief no coinciden, para y reporta la discrepancia.
 
-| Ruta | Qué contiene | Cuándo leerlo |
+## 1. Stack y comandos
+
+- Perfil `{{PROFILE}}`: {{PROFILE_DESCRIPTION}}
+- Código en `{{PATHS_SOURCE}}/`; tests en `{{PATHS_TESTS}}/`.
+- Los tests, la verificación y la mutación corren en **Docker Compose**
+  (servicio `app`, repositorio montado en `/app`). El arnés (`harness.py`,
+  `./init.sh`) corre en el **host**. No llames `python3 -m unittest`
+  directamente en el host.
+- `{{COMMAND_BUILD}}` y `{{COMMAND_CLEAN}}` son del humano/CI. Ningún
+  agente los ejecuta.
+
+| Comando | Quién | Para qué |
 |---|---|---|
-| `harness/process/` | El método: workflow, spec, trazabilidad, TDD, Gherkin, mutación, checkpoints | Siempre |
-| `harness/roles/` | Los seis roles del pipeline | Antes de actuar |
-| `harness/templates/` | Plantillas de specs, features e informes | Al crear artefactos |
-| `feature_list.json` | Estado de las features | Siempre |
-| `harness.config.json` | Paths, comandos y umbral de mutación | Al ejecutar tests o mutación |
-| `project-spec.md` | Decisiones globales | Antes de especificar |
-| `specs/<name>/` | Requirements EARS, design y tasks | Antes de Gherkin o TDD |
-| `features/<name>.feature` | Contrato ejecutable aprobado | Antes de implementar |
-| `progress/current.md` | Bitácora de la sesión | Al empezar y mientras trabajas |
-| `docs/architecture.md` | Estándar de calidad | Antes de implementar |
-| `docs/conventions.md` | Estilo y nombres | Antes de escribir código |
-| `docs/verification.md` | Cómo demostrar que funciona | Antes de cerrar |
+| `./init.sh` | agentes | verificación completa |
+| `python3 harness/bin/harness.py next` | agentes | fase y acción siguiente |
+| `python3 harness/bin/harness.py status` | agentes | estado, aprobaciones e informes |
+| `python3 harness/bin/harness.py validate` | agentes | coherencia en disco |
+| `python3 harness/bin/harness.py set <id> <estado>` | rol dueño | transición de estado |
+| `python3 harness/bin/harness.py approve <id>` | gatekeeper | puerta humana |
+| `{{COMMAND_TEST}}` | agentes | suite de tests |
+| `{{COMMAND_VERIFY}}` | agentes | verificación del arnés |
+| `{{COMMAND_MUTATION}}` | mutation_tester | un archivo por llamada |
 
-## Pipeline
+Shell: una orden por llamada, sin `|`, `;`, `&&`, `$( )`, `ls`, `cat`,
+`find`, `head`, `tail`, `echo` ni heredocs. Para explorar usa `read`,
+`glob` y `grep`. `{{PATHS_STATE}}/` es un directorio oculto: `glob` no lo
+lista, léelo con `read` o consulta `harness.py status`.
 
-```
-pending
-  → spec_partner      → project-spec.md + specs/<name>/{requirements,design,tasks}.md
-  → gherkin_author    → features/<name>.feature
-  → ⏸ aprobación humana (harness.py approve <id>)
-  → in_progress
-  → tdd_craftsman     → código + tests + tasks [x]
-  → judge             → .harness/reports/judge_<name>.json
-  → mutation_tester   → .harness/reports/mutation_<name>.json
-  → done
-```
+## 2. Paradas y transiciones
 
-Detalle completo: `harness/process/workflow.md`.
+| Parada (humano) | Acción humana | Transición (agente) |
+|---|---|---|
+| Arquitectura | `/architecture` | `architect` escribe `{{DOCS_ARCHITECTURE}}` |
+| Spec | `/spec <id>` | `spec_partner` escribe `{{PATHS_SPEC}}` y `{{PATHS_SPECS}}/<name>/` |
+| Contrato | `/approve <id>` | `gherkin_author` escribió el `.feature`; `gatekeeper` registra el hash |
+| Trabajo | `/next` | `tdd_craftsman` → `judge` → `mutation_tester`; `repair` interno |
+| Cierre | `/next` | el lead hace `set done`; siguiente feature o `all_done` |
+| Bloqueo | resolver y `/next` | el lead reanuda |
 
-## Reglas duras
+`mark_spec_ready`, `start`, `gherkin`, `tdd`, `judge`, `mutation` y `repair`
+no son paradas: las recorre el lead. El humano solo usa `/architecture`,
+`/spec`, `/approve` y `/next` (y `/status` si quiere).
 
-- Una sola feature en `in_progress`.
-- No hay código sin test rojo que lo pida.
-- No hay implementación sin `.feature` aprobado.
+## 3. Mapa de lectura
+
+| Ruta | Cuándo leerlo |
+|---|---|
+| `harness/process/workflow.md` | Siempre: es la fuente de verdad del proceso |
+| `harness/roles/<rol>.md` | Al empezar: tu contrato |
+| `feature_list.json` | Siempre: estado del backlog |
+| `harness.config.json` | Antes de tests o mutación: paths, comandos, umbral |
+| `{{PATHS_SPEC}}` | Antes de especificar |
+| `{{PATHS_SPECS}}/<name>/` | Antes de Gherkin o TDD |
+| `{{PATHS_FEATURES}}/<name>.feature` | Antes de implementar |
+| `{{PATHS_PROGRESS}}/current.md` | Al empezar y mientras trabajas |
+| `{{PATHS_PROGRESS}}/tdd_<name>.md` | Antes de juzgar o reparar |
+| `{{DOCS_ARCHITECTURE}}`, `{{DOCS_CONVENTIONS}}`, `{{DOCS_VERIFICATION}}` | Antes de implementar, juzgar o cerrar |
+| `{{PATHS_STATE}}/approvals/`, `{{PATHS_STATE}}/reports/` | Antes de reparar; leer con `read` |
+
+## 4. Reglas duras
+
+- Una sola feature `in_progress`; se trabaja la no cerrada de menor `id`.
+- No hay primera feature sin `{{DOCS_ARCHITECTURE}}` sin `TODO`.
+- No hay código sin test rojo; no hay implementación sin `.feature` aprobado.
+- No hay `judge` sin `{{PATHS_PROGRESS}}/tdd_<name>.md` con el mapa
+  `R<n> → @sN → test`.
 - No hay cierre sin judge `APPROVED` y mutación `PASS` sobre el umbral.
-- El estado solo lo cambia `harness.py`; los subagentes no editan
+- `repair` vuelve a TDD; no se baja el umbral ni se edita el mutador.
+- El estado solo lo cambia `harness.py`; los agentes no editan
   `feature_list.json`.
-- La aprobación humana se registra en `.harness/approvals/<name>.json`; si
-  el `.feature` cambia, caduca.
-
-## Comandos
-
-```bash
-./init.sh                                  # verificación completa
-python3 harness/bin/harness.py status      # estado
-python3 harness/bin/harness.py next        # siguiente fase
-python3 harness/bin/harness.py validate    # coherencia
-```
+- Cada rol escribe solo sus artefactos; si falta uno, se relanza al
+  responsable.
+- Documenta la sesión en `{{PATHS_PROGRESS}}/current.md` mientras trabajas.

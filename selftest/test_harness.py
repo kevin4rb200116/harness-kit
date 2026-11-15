@@ -7,10 +7,12 @@ Ejecutar desde la raíz del repo::
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -70,6 +72,20 @@ class HarnessCliTest(unittest.TestCase):
         result = self.harness("approve", "1")
         self.assert_ok(result)
 
+    def write_architecture(self, text: str) -> None:
+        docs = self.root / "docs"
+        docs.mkdir(exist_ok=True)
+        (docs / "architecture.md").write_text(text, encoding="utf-8")
+
+    def write_report(self, kind: str, data: dict) -> None:
+        self.write_json(f".harness/reports/{kind}_greet.json", data)
+
+    def age(self, relative: str, seconds: float) -> None:
+        """Fija el mtime relativo para probar el bucle de reparación."""
+        path = self.root / relative
+        stamp = time.time() + seconds
+        os.utime(path, (stamp, stamp))
+
     # -- status / next ---------------------------------------------------
 
     def test_status_lists_features(self) -> None:
@@ -101,6 +117,236 @@ class HarnessCliTest(unittest.TestCase):
         result = self.harness("next", "--json")
         payload = json.loads(result.stdout)
         self.assertEqual(payload["phase"], "done")
+
+    def test_next_requires_tdd_report_before_judge(self) -> None:
+        self.approve()
+        (self.root / "progress" / "tdd_greet.md").unlink()
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "tdd")
+        self.assertIn("progress/tdd_greet.md", " ".join(payload["hints"]))
+
+    def test_next_requires_tdd_report_with_r_ids(self) -> None:
+        self.approve()
+        (self.root / "progress" / "tdd_greet.md").write_text(
+            "# TDD\n\n@s1 → tests/test_greet.py::test_greet\n",
+            encoding="utf-8",
+        )
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "tdd")
+        self.assertIn("R<n>", " ".join(payload["hints"]))
+
+    def test_next_requires_tdd_report_with_scenarios(self) -> None:
+        self.approve()
+        (self.root / "progress" / "tdd_greet.md").write_text(
+            "# TDD\n\nR1 → tests/test_greet.py::test_greet\n",
+            encoding="utf-8",
+        )
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "tdd")
+        self.assertIn("@sN", " ".join(payload["hints"]))
+
+    def test_next_requires_tdd_traceability_map(self) -> None:
+        self.approve()
+        (self.root / "progress" / "tdd_greet.md").write_text(
+            "# TDD\n\n- [x] T1\n- [x] T2\n\nTodos los tests pasan.\n",
+            encoding="utf-8",
+        )
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "tdd")
+        hints = " ".join(payload["hints"])
+        self.assertIn("R<n>", hints)
+        self.assertIn("@sN", hints)
+
+    def test_judge_rejection_enters_repair(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "REJECTED", "reason": "falta R2"})
+        self.age("progress/tdd_greet.md", -100)
+        self.age(".harness/reports/judge_greet.json", -50)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "repair")
+        self.assertIn("falta R2", " ".join(payload["hints"]))
+
+    def test_repair_with_a_rewritten_tdd_report_returns_to_judge(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "REJECTED", "reason": "falta R2"})
+        self.age("progress/tdd_greet.md", -10)
+        self.age(".harness/reports/judge_greet.json", -200)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "judge")
+
+    def test_mutation_failure_enters_repair_with_survivors(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report(
+            "mutation",
+            {
+                "verdict": "FAIL",
+                "score": 50,
+                "threshold": 100,
+                "survived": ["src/greet.py:2"],
+            },
+        )
+        self.age("progress/tdd_greet.md", -300)
+        self.age(".harness/reports/judge_greet.json", -200)
+        self.age(".harness/reports/mutation_greet.json", -100)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "repair")
+        self.assertIn("src/greet.py:2", " ".join(payload["hints"]))
+
+    def test_repair_after_mutation_returns_to_judge(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report(
+            "mutation", {"verdict": "FAIL", "score": 50, "survived": ["src/greet.py:2"]}
+        )
+        self.age("progress/tdd_greet.md", -50)
+        self.age(".harness/reports/judge_greet.json", -100)
+        self.age(".harness/reports/mutation_greet.json", -200)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "judge")
+
+    def test_judge_reapproval_after_repair_reruns_mutation(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report(
+            "mutation", {"verdict": "FAIL", "score": 50, "survived": ["src/greet.py:2"]}
+        )
+        self.age("progress/tdd_greet.md", -50)
+        self.age(".harness/reports/judge_greet.json", -20)
+        self.age(".harness/reports/mutation_greet.json", -100)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "mutation")
+
+    def test_done_accepts_a_percentage_score(self) -> None:
+        self.approve()
+        self.write_report(
+            "mutation", {"verdict": "PASS", "score": "100%", "threshold": 100}
+        )
+        self.assert_ok(self.harness("set", "1", "done"))
+        self.assertEqual(self.feature()["status"], "done")
+
+    def test_done_requires_tdd_report(self) -> None:
+        self.approve()
+        (self.root / "progress" / "tdd_greet.md").unlink()
+        result = self.harness("set", "1", "done")
+        self.assert_fails(result, "tdd_greet.md", "informe TDD")
+
+    def test_validate_does_not_require_tdd_report_while_in_progress(self) -> None:
+        self.approve()
+        (self.root / "progress" / "tdd_greet.md").unlink()
+        self.assert_ok(self.harness("validate"))
+
+    def test_next_reports_architecture_before_spec(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\nTODO: capas y fronteras.\n")
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "architecture")
+        self.assertEqual(payload["feature"]["id"], 1)
+
+    def test_next_reports_architecture_when_the_document_is_missing(self) -> None:
+        self.set_raw_status("pending")
+        self.assertFalse((self.root / "docs" / "architecture.md").exists())
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "architecture")
+
+    def test_next_skips_architecture_when_the_document_is_complete(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\nCapas: src/greet.py.\n")
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "mark_spec_ready")
+
+    def test_next_does_not_mistake_the_word_todo_for_a_marker(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture(
+            "# Arquitectura\n\nSin TODO pendiente.\n\n"
+            "> Mientras quede un `TODO:` en la plantilla, esto no aplica.\n"
+        )
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "mark_spec_ready")
+
+    def test_next_detects_a_todo_marker_in_a_list(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\n- TODO: decidir capas\n")
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "architecture")
+
+    def test_next_detects_a_todo_marker_in_a_list_without_colon(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\n- TODO decidir capas\n")
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "architecture")
+
+    def test_next_detects_a_todo_marker_mid_line(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\nRevisar TODO: capas\n")
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "architecture")
+
+    def test_next_reports_architecture_with_no_features(self) -> None:
+        data = self.read_json("feature_list.json")
+        data["features"] = []
+        self.write_json("feature_list.json", data)
+        self.write_architecture("TODO: arquitectura\n")
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "architecture")
+        self.assertIsNone(payload["feature"])
+
+    def test_next_explains_architecture_in_plain_text(self) -> None:
+        data = self.read_json("feature_list.json")
+        data["features"] = []
+        self.write_json("feature_list.json", data)
+        self.write_architecture("TODO: arquitectura\n")
+        result = self.harness("next")
+        self.assert_ok(result)
+        self.assertIn("arquitectura", result.stdout.lower())
+
+    def test_architecture_does_not_block_an_approved_feature(self) -> None:
+        self.write_architecture("TODO: arquitectura\n")
+        self.approve()
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "done")
+
+    def test_status_shows_architecture_phase(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("TODO: arquitectura\n")
+        result = self.harness("status")
+        self.assert_ok(result)
+        self.assertIn("architecture", result.stdout)
+
+    def test_status_without_features_reports_pending_architecture(self) -> None:
+        data = self.read_json("feature_list.json")
+        data["features"] = []
+        self.write_json("feature_list.json", data)
+        self.write_architecture("TODO: arquitectura\n")
+        result = self.harness("status")
+        self.assert_ok(result)
+        self.assertIn("arquitectura", result.stdout.lower())
 
     # -- approve ---------------------------------------------------------
 

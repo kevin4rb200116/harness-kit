@@ -111,6 +111,19 @@ class BootstrapTest(unittest.TestCase):
         self.assertIn("acme", spec)
         self.assertNotIn("{{", agents)
 
+    def test_agents_maps_the_state_machine_and_commands(self) -> None:
+        self.assert_ok(self.init("--project", "acme"))
+        agents = (self.target / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("Paradas y transiciones", agents)
+        self.assertIn(
+            "docker compose run --rm app python3 -m unittest", agents
+        )
+        self.assertIn(
+            "docker compose run --rm app python3 tools/mutate.py", agents
+        )
+        self.assertIn("/next", agents)
+        self.assertNotIn("{{", agents)
+
     def test_config_reflects_profile(self) -> None:
         self.assert_ok(self.init())
         config = json.loads(
@@ -229,6 +242,15 @@ class BootstrapTest(unittest.TestCase):
         result = self.harness("next", "--json")
         self.assert_ok(result)
         payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "architecture")
+        self.assertIsNone(payload["feature"])
+
+        architecture = self.target / "docs" / "architecture.md"
+        architecture.write_text(
+            architecture.read_text(encoding="utf-8").replace("TODO", "Decidido"),
+            encoding="utf-8",
+        )
+        payload = json.loads(self.harness("next", "--json").stdout)
         self.assertEqual(payload["phase"], "all_done")
 
     def test_check_command_is_green(self) -> None:

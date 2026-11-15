@@ -2,6 +2,9 @@
 
 > Este documento define el estándar de calidad del proyecto. El judge evalúa
 > contra este archivo. Si no está aquí, no es un requisito.
+>
+> El `architect` lo cierra con el humano antes de la primera feature. Mientras
+> quede un marcador `TODO:`, `harness.py next` devuelve la fase `architecture`.
 
 ## Principios
 
