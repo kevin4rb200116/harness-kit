@@ -181,11 +181,12 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assertNotIn("python3 -m unittest", text)
         self.assertNotIn("docker compose run", text)
 
-    def test_gatekeeper_only_runs_approve(self) -> None:
+    def test_gatekeeper_only_runs_status_and_approve(self) -> None:
         self.assert_ok(self.init())
         text = frontmatter(self.agent("gatekeeper"))
         self.assertIn('resource: "python3 harness/bin/harness.py approve *"', text)
-        self.assertEqual(text.count("effect: allow"), 1, text)
+        self.assertIn('resource: "python3 harness/bin/harness.py status *"', text)
+        self.assertEqual(text.count("effect: allow"), 2, text)
         self.assertNotIn("action: edit\n    resource: \"progress", text)
 
     def test_architect_only_writes_the_architecture_document(self) -> None:
@@ -245,6 +246,44 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assertIn(
             'resource: "docker compose run --rm app python3 tools/mutate.py *"', text
         )
+
+    def test_judge_ignores_mutation_and_rewrites_the_reports(self) -> None:
+        self.assert_ok(self.init())
+        body = self.agent("judge")
+        self.assertIn("Independencia de la mutación", body)
+        self.assertIn("No leas ni cites", body)
+        self.assertIn("Reescribe siempre", body)
+        self.assertIn("Frescura del veredicto", body)
+
+    def test_mutation_only_touches_production_and_rewrites(self) -> None:
+        self.assert_ok(self.init())
+        body = self.agent("mutation_tester")
+        self.assertIn("solo bajo `src/`", body)
+        self.assertIn("Nunca", body)
+        self.assertIn("tests/", body)
+        self.assertIn("Escribe **siempre**", body)
+        self.assertIn("Frescura del veredicto", body)
+
+    def test_spec_command_requires_the_global_spec(self) -> None:
+        self.assert_ok(self.init())
+        body = self.command("spec")
+        self.assertIn("project-spec.md", body)
+        self.assertIn("TODO:", body)
+        self.assertIn("set spec_ready", body)
+
+    def test_lead_checks_verdict_freshness(self) -> None:
+        self.assert_ok(self.init())
+        body = self.agent("craftsman_lead")
+        self.assertIn("Frescura de los veredictos", body)
+        self.assertIn("mtime", body)
+        self.assertIn("reescriba", body)
+
+    def test_next_mentions_the_freshness_and_global_spec_gates(self) -> None:
+        self.assert_ok(self.init())
+        body = self.command("next")
+        self.assertIn("reescriba", body)
+        self.assertIn("project-spec.md", body)
+        self.assertIn("TODO:", body)
 
     def test_profile_keeps_human_verbs_out_of_the_agent_allowlist(self) -> None:
         profile = json.loads(

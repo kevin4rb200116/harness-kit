@@ -9,6 +9,9 @@ permissions:
     resource: "*"
     effect: deny
   - action: shell
+    resource: "python3 harness/bin/harness.py status *"
+    effect: allow
+  - action: shell
     resource: "python3 harness/bin/harness.py approve *"
     effect: allow
 ---
@@ -23,13 +26,15 @@ la puerta.
 
 Lee `AGENTS.md`, `harness/roles/gatekeeper.md` y
 `harness/process/workflow.md`. Herramientas: `read`, `glob` y `grep`; shell
-solo `harness.py approve`. Fase `approval`; no escribes archivos.
+solo `harness.py status` y `harness.py approve`. Fase `approval`; no
+escribes archivos.
 
 ## Protocolo
 
 1. Averigua la feature a aprobar:
    - Si el humano pasó un id/nombre en el comando, úsalo.
-   - Si no, lee `feature_list.json` y busca la feature en `spec_ready`.
+   - Si no, ejecuta `python3 harness/bin/harness.py status` y busca la
+     feature en `spec_ready` (o lee `feature_list.json` con `read`).
 2. Lee `{{PATHS_FEATURES}}/<name>.feature` y muestra al humano un resumen
    breve: título y lista de escenarios `@sN`.
 3. Confirma que el humano ha invocado `/approve` en esta conversación. Esa

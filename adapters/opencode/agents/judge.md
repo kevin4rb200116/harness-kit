@@ -57,6 +57,21 @@ sin más: no hay estándar contra el que juzgar.
 - Si `harness.py next` te dio la fase `judge`, la aprobación y el informe
   TDD existen; si dudas, `read`, no `glob`.
 
+## Independencia de la mutación
+
+El score de mutación **no es tu veredicto**. No leas ni cites
+`{{PATHS_STATE}}/reports/mutation_<name>.json` ni
+`{{PATHS_PROGRESS}}/mutation_<name>.md`: la mutación la evalúa
+`mutation_tester` después de ti. Rechazar por un score bajo duplica la
+puerta y gasta una reparación inútil.
+
+## Frescura del veredicto
+
+`next` compara mtimes: si el TDD cambió `{{PATHS_PROGRESS}}/tdd_<name>.md`,
+`{{PATHS_SOURCE}}/` o `{{PATHS_TESTS}}/` después de tu veredicto, vuelve a
+`judge` aunque tu JSON diga `APPROVED`. **Reescribe siempre** el `.md` y el
+`.json` en cada ronda, incluso si el veredicto se repite.
+
 ## Protocolo
 
 1. Identifica la feature `in_progress`, su spec, su `.feature`,
@@ -71,7 +86,7 @@ sin más: no hay estándar contra el que juzgar.
    duplicación, funciones cortas.
 6. Ejecuta `{{COMMAND_VERIFY}}`. Tiene que estar verde.
 7. Recorre los checkpoints C1–C8 y los P* del perfil.
-8. Escribe:
+8. Escribe **siempre** (en cada ronda, aunque el veredicto no cambie):
    - `{{PATHS_PROGRESS}}/judge_<name>.md` — informe humano.
    - `{{PATHS_STATE}}/reports/judge_<name>.json` — veredicto.
 
@@ -109,5 +124,6 @@ herramienta: no uses `echo $?`.
 - No edites código, tests, specs, features, `feature_list.json` ni los
   informes de mutación.
 - Solo escribes tu `.md` y tu `.json`.
+- No bases el veredicto en el informe de mutación: no es tu puerta.
 - Devuelve **una sola línea**: `APPROVED` o `REJECTED`, el motivo
   principal y `leído: <archivos>`.

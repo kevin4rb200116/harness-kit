@@ -52,7 +52,7 @@ lista, léelo con `read` o consulta `harness.py status`.
 | Parada (humano) | Acción humana | Transición (agente) |
 |---|---|---|
 | Arquitectura | `/architecture` | `architect` escribe `{{DOCS_ARCHITECTURE}}` |
-| Spec | `/spec <id>` | `spec_partner` escribe `{{PATHS_SPEC}}` y `{{PATHS_SPECS}}/<name>/` |
+| Spec | `/spec <id>` | `spec_partner` escribe `{{PATHS_SPEC}}` (sin `TODO:`) y `{{PATHS_SPECS}}/<name>/` |
 | Contrato | `/approve <id>` | `gherkin_author` escribió el `.feature`; `gatekeeper` registra el hash |
 | Trabajo | `/next` | `tdd_craftsman` → `judge` → `mutation_tester`; `repair` interno |
 | Cierre | `/next` | el lead hace `set done`; siguiente feature o `all_done` |
@@ -82,10 +82,15 @@ no son paradas: las recorre el lead. El humano solo usa `/architecture`,
 
 - Una sola feature `in_progress`; se trabaja la no cerrada de menor `id`.
 - No hay primera feature sin `{{DOCS_ARCHITECTURE}}` sin `TODO`.
+- No hay `spec_ready` ni `in_progress` con `{{PATHS_SPEC}}` en `TODO:`.
 - No hay código sin test rojo; no hay implementación sin `.feature` aprobado.
 - No hay `judge` sin `{{PATHS_PROGRESS}}/tdd_<name>.md` con el mapa
   `R<n> → @sN → test`.
 - No hay cierre sin judge `APPROVED` y mutación `PASS` sobre el umbral.
+- Cada veredicto vale para una ronda: si cambia el informe TDD, `{{PATHS_SOURCE}}/`
+  o `{{PATHS_TESTS}}/`, `next` repite `judge` o `mutation`. Ambos roles
+  reescriben su JSON y su `.md` en cada ronda. El `judge` no lee la
+  mutación; la mutación solo toca producción.
 - `repair` vuelve a TDD; no se baja el umbral ni se edita el mutador.
 - El estado solo lo cambia `harness.py`; los agentes no editan
   `feature_list.json`.

@@ -48,7 +48,10 @@ el mismo en todos los lenguajes.
   defecto del kit.
 - `mutation.scope = "all"`: mutar todo el código fuente. Más lento y, en
   proyectos grandes, poco práctico.
-- El mutador **no debe mutar tests, strings ni comentarios**.
+- El mutador **no debe mutar tests, strings ni comentarios**. Mutar la
+  suite mide la suite contra sí misma, no la producción: ensucia el score y
+  provoca reparaciones inútiles. La herramienta rechaza rutas bajo
+  `tests/`, `test_*.py` y `conftest.py`.
 
 ## Umbral
 
@@ -60,9 +63,14 @@ el mismo en todos los lenguajes.
 
 ## Reglas
 
-- Restaurar siempre el código original, incluso ante interrupción.
+- Restaurar siempre el código original **y su mtime**, incluso ante
+  interrupción. Un mtime nuevo simula una ronda TDD y caduca el veredicto
+  del judge.
 - Descartar mutantes que no compilan: no inflan la puntuación.
 - Reportar los supervivientes con archivo y línea.
+- No mutar tests: el score se calcula solo sobre producción.
+- El `mutation_tester` reescribe su JSON y su `.md` en cada ronda, aunque
+  el veredicto no cambie.
 - No mutar código que la feature no toca si `scope = "touched_files"`.
 - Si un superviviente está fuera de alcance, se documenta en
   `progress/mutation_<name>.md`; no se ignora en silencio.

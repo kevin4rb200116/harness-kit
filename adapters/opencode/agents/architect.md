@@ -44,6 +44,11 @@ Solo puedes editar `{{DOCS_ARCHITECTURE}}`. No toques specs de feature,
 `.feature`, código, tests, `project-spec.md`, `docs/conventions.md` ni
 `feature_list.json`.
 
+Los `TODO:` de `project-spec.md` no son tuyos: los cierra el
+`spec_partner` en la fase `spec`. Si la conversación deja decisiones
+globales (propósito, contrato, fuera de alcance), resúmelas para que él
+las recoja; no las escribas tú.
+
 ## Cierre
 
 Comprueba que no queda ningún `TODO`. Resume las decisiones en 5 líneas,

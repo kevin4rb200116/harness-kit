@@ -22,17 +22,27 @@ Lee `AGENTS.md` y `harness/process/workflow.md`. Herramientas: `read`,
 1. Lee `harness/process/mutation-testing.md` y
    `harness/process/traceability.md`.
 2. Identifica los archivos de código tocados por la feature en
-   `progress/tdd_<name>.md`.
+   `progress/tdd_<name>.md`, **solo bajo `paths.source`**. Nunca pases un
+   archivo de `tests/`, `test_*.py` ni `conftest.py`: mutar la suite no
+   demuestra nada sobre la producción y ensucia el score.
 3. Ejecuta `commands.mutation` según `mutation.scope`:
    - `touched_files`: solo los archivos de la feature.
    - `all`: todo el código fuente.
    El mutador acepta **un archivo por llamada**. No pases dos rutas en el
    mismo comando; agrega tú los totales.
 4. Parsea la salida estándar (`score`, `killed`, `total`, `survived`).
-5. Escribe:
+5. Escribe **siempre** (en cada ronda, aunque el veredicto no cambie):
    - `.harness/reports/mutation_<name>.json` — machine-readable.
    - `progress/mutation_<name>.md` — informe humano con supervivientes.
 6. Devuelve una línea: `PASS`/`FAIL` y `score`.
+
+## Frescura del veredicto
+
+`next` compara mtimes: si la ronda TDD (informe, `src/` y `tests/`) cambió
+después de tu informe, vuelve a `mutation` aunque tu JSON diga `PASS`. Por
+eso lo reescribes en cada ronda. El mutador restaura el fuente original
+**y su mtime**; si ves que `src/` cambió de mtime tras mutar, avísalo: el
+veredicto del judge caducaría sin motivo.
 
 ## Formato del JSON
 
@@ -56,9 +66,14 @@ tests que maten a los supervivientes. Tú no tocas el código.
 
 - No edites código, tests, specs, features ni `feature_list.json`.
 - Solo escribes tu informe y tu JSON.
+- Mutas **solo producción** (`paths.source`); el mutador rechaza `tests/`
+  y `test_*.py`. Si un archivo tocado es de tests, sáltalo y anótalo.
+- Reescribes tu JSON y tu `.md` en cada ronda, aunque el veredicto no
+  cambie: un informe viejo no cubre la ronda TDD actual.
 - Si el mutador no está disponible, el veredicto es `FAIL` y lo documentas;
   no inventes una puntuación.
 - No ignores supervivientes: lístalos con archivo y línea.
-- Restaura siempre el código original (el mutador debe hacerlo).
+- Restaura siempre el código original (el mutador debe hacerlo, con su
+  mtime).
 - Un perfil puede declarar `mutation.required: false`; en ese caso lo
   justificas en el informe, pero no lo decides tú.

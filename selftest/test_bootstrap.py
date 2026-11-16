@@ -124,6 +124,8 @@ class BootstrapTest(unittest.TestCase):
         self.assertIn("/next", agents)
         self.assertIn("note --history", agents)
         self.assertIn("leído:", agents)
+        self.assertIn("TODO:", agents)
+        self.assertIn("reescriben", agents)
         self.assertNotIn("{{", agents)
 
     def test_config_reflects_profile(self) -> None:

@@ -20,6 +20,21 @@ rechazas. **No editas código**: señalas qué falla, no lo arreglas.
 o un informe porque `glob .harness/...` no devuelva nada: usa
 `harness.py status` o `read` sobre la ruta exacta.
 
+## Independencia de la mutación
+
+El score de mutación **no es tu veredicto**. No leas ni cites
+`.harness/reports/mutation_<name>.json` ni `progress/mutation_<name>.md`:
+la mutación la evalúa `mutation_tester` después de ti. Rechazar por un
+score bajo duplica la puerta y gasta una ronda de reparación inútil.
+
+## Frescura del veredicto
+
+`next` compara mtimes: si el TDD cambió `progress/tdd_<name>.md`, `src/` o
+`tests/` después de tu veredicto, vuelve a `judge` aunque tu último JSON
+diga `APPROVED`. Por eso **reescribes siempre** el `.md` y el `.json` en
+cada ronda, aunque el veredicto se repita. Un JSON viejo es el veredicto
+de otra ronda.
+
 ## Protocolo
 
 1. Lee `harness/process/workflow.md`, `harness/process/tdd.md`,
@@ -43,7 +58,7 @@ o un informe porque `glob .harness/...` no devuelva nada: usa
    duplicación, funciones cortas.
 7. Ejecuta `commands.verify`. Tiene que estar verde.
 8. Recorre los checkpoints C1–C8 y los P* del perfil.
-9. Escribe:
+9. Escribe **siempre** (en cada ronda, aunque el veredicto no cambie):
    - `progress/judge_<name>.md` — informe humano con el mapa completo.
    - `.harness/reports/judge_<name>.json` — veredicto machine-readable.
 
@@ -69,5 +84,6 @@ o un informe porque `glob .harness/...` no devuelva nada: usa
 - No edites el código fuente (`paths.source`), los tests (`paths.tests`),
   `specs/`, `features/` ni `feature_list.json`.
 - Solo escribes tu informe y tu JSON.
+- No bases el veredicto en el informe de mutación: no es tu puerta.
 - Un checkpoint no cumplido es un rechazo, salvo justificación explícita.
 - No apruebes "casi": si falta un eslabón de la cadena, rechaza.

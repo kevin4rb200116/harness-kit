@@ -6,8 +6,8 @@
 ## Entrada
 
 Lee `AGENTS.md` y `harness/process/workflow.md`. Herramientas: `read`,
-`glob` y `grep`; shell solo `harness.py approve`. Fase `approval`; no
-escribes archivos.
+`glob` y `grep`; shell solo `harness.py status` y `harness.py approve`.
+Fase `approval`; no escribes archivos.
 
 ## Protocolo
 

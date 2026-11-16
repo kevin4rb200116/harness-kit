@@ -55,18 +55,27 @@ Lecturas: `harness/process/mutation-testing.md` y
 ## Protocolo
 
 1. Identifica los archivos tocados por la feature en
-   `progress/tdd_<name>.md`.
+   `progress/tdd_<name>.md`, **solo bajo `{{PATHS_SOURCE}}/`**. Nunca
+   pases `tests/`, `test_*.py` ni `conftest.py`: mutar la suite no prueba
+   nada sobre la producción y ensucia el score.
 2. Ejecuta `{{COMMAND_MUTATION}}` según `mutation.scope`:
    `touched_files` solo la feature; `all` todo el código.
    El mutador acepta **un archivo por llamada**: no pases dos rutas en el
    mismo comando. Agrega tú los totales de cada archivo.
 3. Parsea `score`, `killed`, `total` y `survived`.
-4. Escribe:
+4. Escribe **siempre** (en cada ronda, aunque el veredicto no cambie):
    - `{{PATHS_STATE}}/reports/mutation_<name>.json` — machine-readable.
    - `{{PATHS_PROGRESS}}/mutation_<name>.md` — informe humano con
      supervivientes.
 5. Devuelve **una sola línea**: `PASS`/`FAIL`, `score` y
    `leído: <archivos>`.
+
+## Frescura del veredicto
+
+`next` compara mtimes: si la ronda TDD (informe, `src/` y `tests/`) cambió
+después de tu informe, vuelve a `mutation` aunque tu JSON diga `PASS`.
+Reescríbelo en cada ronda. El mutador restaura el fuente original **y su
+mtime**; si `src/` cambia de mtime tras mutar, avísalo.
 
 ## JSON obligatorio
 
@@ -102,8 +111,12 @@ herramienta: no uses `echo $?`.
 - No edites código, tests, specs, features, `feature_list.json` ni el
   informe del judge.
 - Solo escribes tu `.md` y tu `.json`.
+- Mutas **solo producción** (`{{PATHS_SOURCE}}/`); si un archivo tocado
+  está bajo tests, sáltalo y anótalo.
+- Reescribes tu JSON y tu `.md` en cada ronda, aunque el veredicto no
+  cambie.
 - Si el mutador no está disponible, el veredicto es `FAIL` y lo
   documentas; no inventes una puntuación.
 - No ignores supervivientes: lístalos con archivo y línea.
-- El mutador debe restaurar el código original; si no lo hace, para y
-  reporta.
+- El mutador debe restaurar el código original y su mtime; si no lo hace,
+  para y reporta.

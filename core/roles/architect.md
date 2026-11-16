@@ -17,7 +17,10 @@ Convertir el arranque del proyecto en un estándar de calidad explícito:
   dependencias, no-objetivos y criterio de revisión.
 
 Es el único artefacto que escribe. `project-spec.md` recoge después las
-decisiones globales; el `spec_partner` no repite el estándar.
+decisiones globales; el `spec_partner` no repite el estándar. Los `TODO:`
+de `project-spec.md` **no son tuyos**: los cierra el `spec_partner` en la
+fase `spec`. Si al conversar aparecen decisiones globales (propósito,
+contrato, fuera de alcance), déjalas claras para que él las recoja.
 
 ## Por qué existe
 

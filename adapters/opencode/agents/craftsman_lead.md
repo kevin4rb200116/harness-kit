@@ -137,10 +137,14 @@ la orden permitida.
 - **tdd**: lanza `tdd_craftsman` con el id/name de la feature. Exige que
   escriba `progress/tdd_<name>.md` con el mapa `R<n> → @sN → test`; sin
   ese informe `next` no pasa a `judge`.
-- **judge**: lanza `judge` con el id/name de la feature; lee el JSON en
-  `.harness/reports/judge_<name>.json`.
-- **mutation**: lanza `mutation_tester` con el id/name de la feature; lee
-  `.harness/reports/mutation_<name>.json`.
+- **judge**: lanza `judge` con el id/name de la feature; exige que
+  reescriba `.harness/reports/judge_<name>.json` y
+  `progress/judge_<name>.md` en esta ronda. El judge no lee el informe de
+  mutación.
+- **mutation**: lanza `mutation_tester` con el id/name de la feature; exige
+  que mute solo producción (`src/`) y reescriba
+  `.harness/reports/mutation_<name>.json` y
+  `progress/mutation_<name>.md`.
 - **repair**: la última revisión falló. Relanza `tdd_craftsman` con el
   id/name y los motivos que imprime `next` (o el informe fallido). Debe
   corregir tests/código y reescribir `progress/tdd_<name>.md`. No relances
@@ -164,6 +168,14 @@ reporta los motivos/supervivientes al humano.
 
 **Reportar no es avanzar.**
 
+## Frescura de los veredictos
+
+`next` mide la ronda TDD por mtime: `progress/tdd_<name>.md`, `src/` y
+`tests/`. Un `APPROVED` o un `PASS` anterior a esa ronda no vale: `next`
+vuelve a pedir `judge` o `mutation`. Cuando eso pase, relanza el rol y
+exige que reescriba JSON y `.md`; no interpretes el veredicto viejo. Antes
+de `done`, comprueba que ambos JSON son más nuevos que el informe TDD.
+
 ## Contrato con subagentes
 
 Un subagente = un artefacto. Los artefactos van a disco; el subagente
@@ -186,10 +198,12 @@ siempre:
 6. Si es `repair`: la ruta del informe fallido y sus motivos.
 
 Mínimos: `tdd_craftsman` debe escribir `progress/tdd_<name>.md` (mapa
-`R<n> → @sN → test`); `judge` debe escribir
-`.harness/reports/judge_<name>.json`; `mutation_tester` ejecuta el mutador
-**una vez por archivo** y escribe
-`.harness/reports/mutation_<name>.json`.
+`R<n> → @sN → test`); `judge` debe reescribir
+`.harness/reports/judge_<name>.json` y `progress/judge_<name>.md` y no lee
+el informe de mutación; `mutation_tester` ejecuta el mutador **una vez por
+archivo**, solo producción (`src/`), y reescribe
+`.harness/reports/mutation_<name>.json` y
+`progress/mutation_<name>.md`.
 
 Nunca lances `spec_partner` ni `gatekeeper` como subagentes: son agentes
 primarios y sus permisos no los tienes. No inventes comandos: las únicas

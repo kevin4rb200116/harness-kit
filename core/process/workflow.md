@@ -93,6 +93,19 @@ Antes de la primera feature, `docs/architecture.md` debe estar cerrado:
 La puerta solo aplica a features `pending`: una feature ya aprobada o en
 curso no se bloquea retroactivamente.
 
+## La puerta de la spec global
+
+`project-spec.md` se cierra en la fase `spec`, no en la arquitectura:
+
+1. Si falta o conserva un `TODO:`, `next` devuelve `spec` para una feature
+   `pending` con `sdd: true`.
+2. `set spec_ready` e `in_progress` fallan mientras queden `TODO:`.
+3. `validate` avisa si una feature ya iniciada arrastra una spec global
+   pendiente (proyectos heredados).
+
+El `architect` no escribe `project-spec.md`; solo el `spec_partner` lo
+cierra, junto con `specs/<name>/`.
+
 ## La puerta humana
 
 La aprobación del contrato es **conversación + marcador en disco**:
@@ -128,6 +141,18 @@ La ronda se mide por lo más reciente entre el informe TDD, `src/` y
 `tests/`: cualquier cambio de código o de test caduca el veredicto, aunque
 el artesano olvide reescribir el informe. Los `__pycache__` no cuentan. No
 se baja el umbral ni se edita el mutador para salir del bucle.
+
+Cada veredicto vale para **una ronda**. `next` compara el mtime del JSON
+con la ronda TDD: si el TDD cambió algo después, el veredicto caduca y
+`next` vuelve a pedir `judge` o `mutation`. Por eso ambos roles reescriben
+su JSON y su `.md` en cada ronda, aunque el veredicto no cambie.
+
+El `judge` no lee el informe de mutación: son puertas independientes. Un
+rechazo por score bajo duplica la mutación y gasta una reparación extra.
+
+La mutación cubre **solo código de producción** (`src/`). Mutar `tests/` no
+demuestra nada y ensucia el score: el mutador rechaza esas rutas y conserva
+el mtime original al restaurar, para no caducar el veredicto del judge.
 
 Tope: **3 rondas de reparación**. Si la cuarta vuelve a fallar, el lead
 bloquea la feature (`harness.py block <id> "reparación sin converger"`) y

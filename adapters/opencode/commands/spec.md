@@ -16,7 +16,12 @@ casos límite, errores, alternativas descartadas, dependencias y posibles
 colisiones con decisiones previas. No escribas archivos hasta que el
 humano haya respondido a lo que falta.
 
-Cuando la conversación esté cerrada, escribe `requirements.md`,
-`design.md` y `tasks.md` en `specs/<name>/`, revisa la trazabilidad
-`acceptance → R<n>` y resume en 5 líneas. Al final, pide al humano que
-vuelva al `craftsman_lead` y ejecute `/next` para marcar `spec_ready`.
+Cuando la conversación esté cerrada, escribe `project-spec.md` (sin ningún
+`TODO:`) y `requirements.md`, `design.md` y `tasks.md` en
+`specs/<name>/`, revisa la trazabilidad `acceptance → R<n>` y resume en 5
+líneas. Al final, pide al humano que vuelva al `craftsman_lead` y ejecute
+`/next` para marcar `spec_ready`.
+
+`project-spec.md` es tu artefacto: si queda un `TODO:`, `next` vuelve a
+`spec` y `set spec_ready` falla. No lo dejes para la arquitectura ni para
+el lead.

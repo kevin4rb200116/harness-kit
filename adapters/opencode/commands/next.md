@@ -25,11 +25,16 @@ avanzar.**
   correspondiente.
 - `gherkin` / `tdd` / `judge` / `mutation`: lanza el subagente indicado y
   espera su línea de resumen. En `tdd`, exige `progress/tdd_<name>.md` con
-  el mapa `R<n> → @sN → test`; sin él, `next` no pasa a `judge`.
+  el mapa `R<n> → @sN → test`; sin él, `next` no pasa a `judge`. En
+  `judge` y `mutation`, exige que el rol **reescriba** su JSON y su `.md`
+  en esta ronda: si `next` repite la fase, el veredicto en disco es de una
+  ronda anterior. El `judge` no lee el informe de mutación y el
+  `mutation_tester` solo muta producción (`src/`).
 - `repair`: relanza `tdd_craftsman` con los motivos del informe fallido
   (`judge` rechazó o mutación por debajo del umbral). No relances judge ni
   mutación antes de que el TDD repare y reescriba su informe.
-- `spec`: **PARA**. Pide al humano que ejecute `/spec`.
+- `spec`: **PARA**. Pide al humano que ejecute `/spec`. El `spec_partner`
+  debe cerrar `project-spec.md` sin `TODO:` además de `specs/<name>/`.
 - `architecture`: **PARA**. Pide al humano que ejecute `/architecture`.
 - `approval`: **PARA**. Pide al humano que lea el `.feature` y ejecute
   `/approve <id>`.

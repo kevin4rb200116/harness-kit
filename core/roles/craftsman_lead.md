@@ -52,6 +52,15 @@ subagente). Las únicas paradas son las puertas humanas: `architecture`
 
 **Reportar no es avanzar.**
 
+## Frescura de los veredictos
+
+`next` mide la ronda TDD por mtime: `progress/tdd_<name>.md`, `src/` y
+`tests/`. Un `APPROVED` o un `PASS` anterior a esa ronda no vale: `next`
+vuelve a pedir `judge` o `mutation`. Cuando eso pase, relanza el rol y
+exige que reescriba su JSON y su `.md`; no interpretes el veredicto viejo.
+Antes de `done`, comprueba que los dos JSON son más nuevos que el informe
+TDD. El `judge` no lee el informe de mutación: son puertas independientes.
+
 ## Shell
 
 Una sola orden por llamada de shell. Las allowlists del adapter son cadenas
@@ -85,12 +94,14 @@ Mínimos por rol:
 - `tdd_craftsman`: implementa `tasks.md` y **escribe**
   `progress/tdd_<name>.md` con el mapa `R<n> → @sN → test`; devuelve una
   línea con tests y tasks.
-- `judge`: lee `progress/tdd_<name>.md`; escribe
-  `.harness/reports/judge_<name>.json`; devuelve `APPROVED` o `REJECTED`
-  con el motivo.
-- `mutation_tester`: ejecuta el mutador **una vez por archivo**; escribe
-  `.harness/reports/mutation_<name>.json`; devuelve `PASS`/`FAIL` y
-  `score`.
+- `judge`: lee `progress/tdd_<name>.md`; escribe **siempre**
+  `.harness/reports/judge_<name>.json` y `progress/judge_<name>.md`;
+  devuelve `APPROVED` o `REJECTED` con el motivo. No lee el informe de
+  mutación.
+- `mutation_tester`: ejecuta el mutador **una vez por archivo**, solo
+  producción (`src/`); escribe **siempre**
+  `.harness/reports/mutation_<name>.json` y
+  `progress/mutation_<name>.md`; devuelve `PASS`/`FAIL` y `score`.
 
 Sin `progress/tdd_<name>.md` completo, `next` no pasa a `judge`: no
 intentes escribir ese informe tú.

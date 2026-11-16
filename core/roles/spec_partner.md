@@ -33,21 +33,26 @@ el humano no se ha preguntado:
 ## Protocolo
 
 1. Lee `AGENTS.md`, `harness/process/spec.md`,
-   `harness/process/traceability.md`, `docs/architecture.md` y
-   `docs/conventions.md`.
+   `harness/process/traceability.md`, `docs/architecture.md`,
+   `docs/conventions.md` y `project-spec.md`.
 2. Toma la feature `pending` de menor `id` con `"sdd": true`.
 3. Debate con el humano: alcance, contrato, errores, límites, alternativas,
    dependencias.
-4. Escribe los tres archivos en `specs/<name>/`.
-5. Verifica que cada `acceptance` está cubierto por al menos un `R<n>` y que
+4. Cierra `project-spec.md` en esta misma fase: sustituye cada `TODO:` por
+   la decisión del humano. Si queda uno, `next` vuelve a `spec` y
+   `set spec_ready` falla.
+5. Escribe los tres archivos en `specs/<name>/`.
+6. Verifica que cada `acceptance` está cubierto por al menos un `R<n>` y que
    cada `R<n>` aparece en `design.md` y `tasks.md`.
-6. Pide al lead que ejecute
+7. Pide al lead que ejecute
    `python3 harness/bin/harness.py set <id> spec_ready`.
 
 ## Reglas duras
 
 - Un `R<n>` tiene **un solo `DEBE`**.
 - Nada de requisitos no verificables ("rápido", "amigable").
+- No dejes `TODO:` en `project-spec.md`: es tu artefacto y la puerta de
+  `spec_ready` lo comprueba.
 - No escribas `features/<name>.feature` (eso es del `gherkin_author`).
 - No escribas código ni tests.
 - No edites `feature_list.json`; usa `harness.py`.
