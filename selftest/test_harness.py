@@ -86,6 +86,14 @@ class HarnessCliTest(unittest.TestCase):
         stamp = time.time() + seconds
         os.utime(path, (stamp, stamp))
 
+    def age_round(self, seconds: float) -> None:
+        """Fija el epoch de la ronda: informe TDD, código y tests."""
+        self.age("progress/tdd_greet.md", seconds)
+        for base in ("src", "tests"):
+            for path in (self.root / base).rglob("*"):
+                if path.is_file():
+                    self.age(str(path.relative_to(self.root)), seconds)
+
     # -- status / next ---------------------------------------------------
 
     def test_status_lists_features(self) -> None:
@@ -168,7 +176,7 @@ class HarnessCliTest(unittest.TestCase):
     def test_judge_rejection_enters_repair(self) -> None:
         self.approve()
         self.write_report("judge", {"verdict": "REJECTED", "reason": "falta R2"})
-        self.age("progress/tdd_greet.md", -100)
+        self.age_round(-100)
         self.age(".harness/reports/judge_greet.json", -50)
         result = self.harness("next", "--json")
         self.assert_ok(result)
@@ -179,7 +187,7 @@ class HarnessCliTest(unittest.TestCase):
     def test_repair_with_a_rewritten_tdd_report_returns_to_judge(self) -> None:
         self.approve()
         self.write_report("judge", {"verdict": "REJECTED", "reason": "falta R2"})
-        self.age("progress/tdd_greet.md", -10)
+        self.age_round(-10)
         self.age(".harness/reports/judge_greet.json", -200)
         result = self.harness("next", "--json")
         self.assert_ok(result)
@@ -197,7 +205,7 @@ class HarnessCliTest(unittest.TestCase):
                 "survived": ["src/greet.py:2"],
             },
         )
-        self.age("progress/tdd_greet.md", -300)
+        self.age_round(-300)
         self.age(".harness/reports/judge_greet.json", -200)
         self.age(".harness/reports/mutation_greet.json", -100)
         result = self.harness("next", "--json")
@@ -212,7 +220,7 @@ class HarnessCliTest(unittest.TestCase):
         self.write_report(
             "mutation", {"verdict": "FAIL", "score": 50, "survived": ["src/greet.py:2"]}
         )
-        self.age("progress/tdd_greet.md", -50)
+        self.age_round(-50)
         self.age(".harness/reports/judge_greet.json", -100)
         self.age(".harness/reports/mutation_greet.json", -200)
         result = self.harness("next", "--json")
@@ -225,12 +233,53 @@ class HarnessCliTest(unittest.TestCase):
         self.write_report(
             "mutation", {"verdict": "FAIL", "score": 50, "survived": ["src/greet.py:2"]}
         )
-        self.age("progress/tdd_greet.md", -50)
+        self.age_round(-50)
         self.age(".harness/reports/judge_greet.json", -20)
         self.age(".harness/reports/mutation_greet.json", -100)
         result = self.harness("next", "--json")
         self.assert_ok(result)
         self.assertEqual(json.loads(result.stdout)["phase"], "mutation")
+
+    def test_source_change_reopens_the_judge(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report(
+            "mutation", {"verdict": "FAIL", "score": 94, "survived": ["src/greet.py:2"]}
+        )
+        self.age_round(-100)
+        self.age(".harness/reports/judge_greet.json", -50)
+        self.age(".harness/reports/mutation_greet.json", -40)
+        self.age("src/greet.py", -30)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "judge")
+
+    def test_test_change_reopens_the_judge(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "REJECTED", "reason": "falta R2"})
+        self.age_round(-100)
+        self.age(".harness/reports/judge_greet.json", -50)
+        self.age("tests/test_greet.py", -30)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "judge")
+
+    def test_cache_files_do_not_count_as_a_new_round(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report(
+            "mutation", {"verdict": "FAIL", "score": 94, "survived": ["src/greet.py:2"]}
+        )
+        self.age_round(-100)
+        self.age(".harness/reports/judge_greet.json", -50)
+        self.age(".harness/reports/mutation_greet.json", -40)
+        cache = self.root / "src" / "__pycache__" / "greet.cpython-312.pyc"
+        cache.parent.mkdir()
+        cache.write_bytes(b"\0")
+        self.age("src/__pycache__/greet.cpython-312.pyc", 100)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "repair")
 
     def test_done_accepts_a_percentage_score(self) -> None:
         self.approve()
@@ -544,6 +593,47 @@ class HarnessCliTest(unittest.TestCase):
         self.assert_ok(self.harness("note", "empezando el TDD"))
         text = (self.root / "progress" / "current.md").read_text(encoding="utf-8")
         self.assertIn("empezando el TDD", text)
+
+    def test_note_history_appends_without_touching_current(self) -> None:
+        current = self.root / "progress" / "current.md"
+        before = current.read_text(encoding="utf-8")
+        self.assert_ok(self.harness("note", "--history", "cierre de la feature"))
+        history = (self.root / "progress" / "history.md").read_text(encoding="utf-8")
+        self.assertIn("cierre de la feature", history)
+        self.assertEqual(before, current.read_text(encoding="utf-8"))
+
+    def test_note_history_creates_the_file_with_a_header(self) -> None:
+        (self.root / "progress" / "history.md").unlink(missing_ok=True)
+        self.assert_ok(self.harness("note", "--history", "primera entrada"))
+        history = (self.root / "progress" / "history.md").read_text(encoding="utf-8")
+        self.assertIn("append-only", history)
+        self.assertIn("primera entrada", history)
+
+    def test_validate_warns_about_a_stale_current_md(self) -> None:
+        self.approve()
+        (self.root / "progress" / "current.md").write_text(
+            "# Sesión actual\n\n- **Feature en curso:** _ninguna_\n",
+            encoding="utf-8",
+        )
+        result = self.harness("validate")
+        self.assert_ok(result)
+        self.assertIn("[WARN]", result.stdout)
+        self.assertIn("current.md", result.stdout)
+
+    def test_validate_warns_about_a_legacy_tdd_report(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report("mutation", {"verdict": "PASS", "score": 100})
+        (self.root / "progress" / "tdd_greet.md").write_text(
+            "# TDD\n\nR1 → tests/test_greet.py::test_greet\n", encoding="utf-8"
+        )
+        data = self.read_json("feature_list.json")
+        data["features"][0]["status"] = "done"
+        self.write_json("feature_list.json", data)
+        result = self.harness("validate")
+        self.assert_ok(result)
+        self.assertIn("[WARN]", result.stdout)
+        self.assertIn("@sN", result.stdout)
 
 
 if __name__ == "__main__":

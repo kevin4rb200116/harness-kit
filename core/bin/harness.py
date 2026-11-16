@@ -12,7 +12,7 @@ Uso::
     python3 harness/bin/harness.py [--root DIR] set <id> <status> [--force]
     python3 harness/bin/harness.py [--root DIR] approve <id> [--by NAME]
     python3 harness/bin/harness.py [--root DIR] block <id> <razón>
-    python3 harness/bin/harness.py [--root DIR] note <texto>
+    python3 harness/bin/harness.py [--root DIR] note <texto> [--history]
     python3 harness/bin/harness.py [--root DIR] validate [--verify]
 
 El script nunca confía en el estado de ánimo del modelo: cada transición
@@ -387,13 +387,44 @@ class Project:
     def tdd_report_ready(self, feature: dict) -> bool:
         return not self.tdd_report_errors(feature)
 
-    def tdd_is_newer_than(self, feature: dict, kind: str) -> bool:
-        """El informe TDD se reescribe al cerrar cada ronda de TDD."""
-        report = self.report_path(kind, feature)
+    def newest_mtime(self, paths: list[str]) -> int:
+        """mtime más reciente de los archivos bajo los directorios indicados."""
+        newest = 0
+        for relative in paths:
+            base = self.root / relative
+            if base.is_file():
+                newest = max(newest, base.stat().st_mtime_ns)
+                continue
+            if not base.is_dir():
+                continue
+            for item in base.rglob("*"):
+                if not item.is_file():
+                    continue
+                if "__pycache__" in item.parts or ".pytest_cache" in item.parts:
+                    continue
+                newest = max(newest, item.stat().st_mtime_ns)
+        return newest
+
+    def tdd_round_epoch(self, feature: dict) -> int:
+        """La ronda de TDD cambia si cambia su informe, el código o los tests."""
         tdd = self.tdd_report_path(feature)
-        if not report.is_file() or not tdd.is_file():
+        epoch = tdd.stat().st_mtime_ns if tdd.is_file() else 0
+        return max(
+            epoch,
+            self.newest_mtime(
+                [
+                    self.paths.get("source", "src"),
+                    self.paths.get("tests", "tests"),
+                ]
+            ),
+        )
+
+    def tdd_is_newer_than(self, feature: dict, kind: str) -> bool:
+        """El veredicto caduca si el TDD tocó informe, código o tests después."""
+        report = self.report_path(kind, feature)
+        if not report.is_file():
             return False
-        return tdd.stat().st_mtime_ns > report.stat().st_mtime_ns
+        return self.tdd_round_epoch(feature) > report.stat().st_mtime_ns
 
     def mutation_ok(self, report: dict) -> bool:
         if str(report.get("verdict", "")).upper() != "PASS":
@@ -913,14 +944,17 @@ def cmd_block(project: Project, args: argparse.Namespace) -> int:
 def cmd_note(project: Project, args: argparse.Namespace) -> int:
     progress_dir = project.path("progress")
     progress_dir.mkdir(parents=True, exist_ok=True)
-    current = progress_dir / "current.md"
-    if not current.is_file():
-        current.write_text(
-            "# Sesión actual\n\n## Bitácora\n\n", encoding="utf-8"
-        )
-    with current.open("a", encoding="utf-8") as handle:
+    if getattr(args, "history", False):
+        target = progress_dir / "history.md"
+        header = "# Bitácora histórica (append-only)\n\n"
+    else:
+        target = progress_dir / "current.md"
+        header = "# Sesión actual\n\n## Bitácora\n\n"
+    if not target.is_file():
+        target.write_text(header, encoding="utf-8")
+    with target.open("a", encoding="utf-8") as handle:
         handle.write(f"- {utc_now()} — {args.text}\n")
-    print(f"[OK] nota añadida a {project.rel(current)}")
+    print(f"[OK] nota añadida a {project.rel(target)}")
     return 0
 
 
@@ -928,10 +962,7 @@ def validate_reports(
     project: Project, feature: dict, fid: str, name: str
 ) -> list[str]:
     """Valida los informes machine-readable que exige `done`."""
-    errors: list[str] = [
-        f"feature {fid} ({name}): {error}"
-        for error in project.tdd_report_errors(feature)
-    ]
+    errors: list[str] = []
     judge = project.report("judge", feature)
     if judge is None:
         errors.append(f"feature {fid} ({name}): falta informe del judge")
@@ -957,12 +988,15 @@ def validate_reports(
     return errors
 
 
-def validate_project(project: Project, run_verify: bool = False) -> list[str]:
+def validate_project(
+    project: Project, run_verify: bool = False
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
+    warnings: list[str] = []
     try:
         data = project.load_state()
     except HarnessError as exc:
-        return [str(exc)]
+        return [str(exc)], []
 
     features = project.features(data)
     ids: set[str] = set()
@@ -1033,6 +1067,10 @@ def validate_project(project: Project, run_verify: bool = False) -> list[str]:
                         f"feature {fid} ({name}): {len(pending)} task(s) sin marcar"
                     )
             errors.extend(validate_reports(project, feature, fid, name))
+            warnings.extend(
+                f"feature {fid} ({name}): informe TDD heredado: {error}"
+                for error in project.tdd_report_errors(feature)
+            )
 
     if in_progress > 1:
         errors.append(
@@ -1042,28 +1080,43 @@ def validate_project(project: Project, run_verify: bool = False) -> list[str]:
 
     if not (project.root / project.paths["spec"]).is_file():
         errors.append(f"falta {project.paths['spec']}")
-    if not (project.path("progress") / "current.md").is_file():
+    current = project.path("progress") / "current.md"
+    if not current.is_file():
         errors.append(f"falta {project.paths['progress']}/current.md")
+    elif in_progress:
+        text = current.read_text(encoding="utf-8").lower()
+        for feature in features:
+            if project.status(feature) != "in_progress":
+                continue
+            name = str(feature.get("name", "")).lower()
+            if name and name not in text:
+                warnings.append(
+                    f"feature {feature.get('id')} ({feature.get('name')}): "
+                    "está in_progress pero progress/current.md no la menciona; "
+                    "el lead debe registrar la sesión"
+                )
 
     if run_verify:
         ok, output = project.verify()
         if not ok:
             errors.append("commands.verify falló:\n" + output)
 
-    return errors
+    return errors, warnings
 
 
 def cmd_validate(project: Project, args: argparse.Namespace) -> int:
-    errors = validate_project(project, run_verify=args.verify)
+    errors, warnings = validate_project(project, run_verify=args.verify)
     if errors:
         print("[FAIL] el arnés no es coherente:", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
-        return 1
-    print("[OK] feature_list.json, specs, features y approvals coherentes")
-    if args.verify:
-        print("[OK] commands.verify en verde")
-    return 0
+    else:
+        print("[OK] feature_list.json, specs, features y approvals coherentes")
+        if args.verify:
+            print("[OK] commands.verify en verde")
+    for warning in warnings:
+        print(f"[WARN] {warning}")
+    return 1 if errors else 0
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────
@@ -1128,8 +1181,15 @@ def build_parser() -> argparse.ArgumentParser:
     block.add_argument("reason", help="razón del bloqueo")
     block.set_defaults(func=cmd_block)
 
-    note = sub.add_parser("note", help="añade una nota a progress/current.md")
+    note = sub.add_parser(
+        "note", help="añade una nota a progress/current.md o a history.md"
+    )
     note.add_argument("text", help="texto de la nota")
+    note.add_argument(
+        "--history",
+        action="store_true",
+        help="añade a progress/history.md (append-only) en vez de current.md",
+    )
     note.set_defaults(func=cmd_note)
 
     validate = sub.add_parser("validate", help="valida el arnés completo")
