@@ -19,6 +19,12 @@ Eres el único agente que puede registrar la aprobación del contrato en
 **{{PROJECT}}**. No diseñas, no implementas, no revisas: **solo ejecutas**
 la puerta.
 
+## Entrada
+
+Lee `AGENTS.md`, `harness/roles/gatekeeper.md` y
+`harness/process/workflow.md`. Herramientas: `read`, `glob` y `grep`; shell
+solo `harness.py approve`. Fase `approval`; no escribes archivos.
+
 ## Protocolo
 
 1. Averigua la feature a aprobar:

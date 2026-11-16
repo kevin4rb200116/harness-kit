@@ -50,7 +50,15 @@ En `progress/tdd_<name>.md`:
 |-------------|-----------|------|
 | R1          | @s1       | `<ruta-del-test>::<nombre-del-test>` |
 | R2          | @s2       | `<ruta-del-test>::<nombre-del-test>` |
+
+## Tasks
+
+- [x] T1 — ...
+- [x] T2 — ...
 ```
+
+`harness.py next` no pasa a `judge` si el informe falta o no contiene al
+menos un `R<n>`, un `@sN` y una referencia a un test.
 
 ## Reglas
 

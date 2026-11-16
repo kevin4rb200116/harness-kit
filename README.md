@@ -13,16 +13,21 @@ método no dependa del lenguaje ni del harness:
 
 ## Estado de esta versión
 
-**Versión 0.3.1 — F0 + F1 + F2 + F2.1 completos.**
+**Versión 0.5.0 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 completos.**
 
-- ✅ F0: máquina de estados ejecutable (`harness/bin/harness.py`) + 30 tests.
-- ✅ F1: core neutro, perfil `python-unittest`, `bootstrap.py` + 14 tests.
-- ✅ F2: adapter OpenCode V2 (7 agentes con permisos, `/next`, `/spec`,
-  `/approve`, `/status`) + 17 tests.
+- ✅ F0: máquina de estados ejecutable (`harness/bin/harness.py`).
+- ✅ F1: core neutro, perfil `python-unittest` y `bootstrap.py`.
+- ✅ F2: adapter OpenCode V2 (8 agentes con permisos, `/next`, `/architecture`,
+  `/spec`, `/approve`, `/status`).
 - ✅ F2.1: disciplina de shell en los prompts (una orden por llamada),
   contrato de cinco verbos verificado por `harness/bin/stack_check.py` y
-  `agent_forbidden` para `build`/`clean` (117 selftests; mutación 100 %
-  sobre el checker).
+  `agent_forbidden` para `build`/`clean`.
+- ✅ F2.2: `/next` avanza la fase en el mismo turno; solo se detiene en
+  puertas humanas.
+- ✅ F3: perfil Python en Docker Compose (`compose.yaml`, `Dockerfile`,
+  `tools/clean.sh` y `harness/bin/run_verb.py`); el arnés sigue en el host.
+- ✅ F3.5: rol `architect` y fase `architecture`; `next` no abre la primera
+  feature mientras `docs/architecture.md` conserve un `TODO`.
 - ⏳ F4: perfil Go.
 - ⏳ F5: adapter Claude Code.
 
@@ -32,7 +37,9 @@ agentes nativos y convierte las puertas en comandos slash.
 
 ## Quickstart
 
-Requisitos: Python 3.9+ (runtime del arnés, no del proyecto destino).
+Requisitos: Python 3.9+ (runtime del arnés) y Docker con Compose (stack del
+perfil). El proyecto destino no necesita Python instalado: sus tests y la
+mutación corren en la imagen.
 
 ```bash
 # 1. Copia o clona harness-kit y entra en él
@@ -45,19 +52,38 @@ python3 bootstrap.py init \
   --adapter opencode \
   --project mi-proyecto
 
-# 3. Verifica
+# 3. Siembra el backlog (acto humano, una vez): feature_list.json
+#    con id, name, title, acceptance, sdd:true y status:"pending"
+
+# 4. Verifica (construye la imagen la primera vez)
 cd ../mi-proyecto
 ./init.sh
 python3 harness/bin/harness.py status
 ```
 
 Abre el proyecto en OpenCode y ejecuta `/next`. El agente por defecto es
-`craftsman_lead`. Para otros harness, usa `--adapter generic`: los roles
-quedan en `harness/roles/` para uso manual.
+`craftsman_lead`. El ciclo completo de una feature es:
+
+```text
+/next          → detecta arquitectura pendiente y para
+/architecture  → conversación; cierra docs/architecture.md
+/next          → detecta spec pendiente y para
+/spec 1        → conversación; escribe specs/<name>/
+/next          → marca spec_ready, lanza gherkin y para en aprobación
+/approve 1     → registra la aprobación
+/next          → tdd → judge → mutación → done (o blocked)
+/next          → siguiente feature o all_done
+```
+
+Solo hay cuatro comandos humanos: `/architecture`, `/spec`, `/approve` y
+`/next`. Los subagentes (`gherkin_author`, `tdd_craftsman`, `judge`,
+`mutation_tester`) los lanza el lead; el humano nunca los invoca. Para otros
+harness, usa `--adapter generic`: los roles quedan en `harness/roles/` para
+uso manual.
 
 Si el destino ya existe y no está vacío, añade `--force`: solo reemplaza lo
 generado (`harness/`, `init.sh`, `tools/`, `.opencode/`, `opencode.jsonc`) y
-conserva spec, estado, docs y código.
+conserva spec, estado, docs, código, `compose.yaml` y `Dockerfile`.
 
 ## Layout generado
 
@@ -68,14 +94,18 @@ mi-proyecto/
 ├── feature_list.json             # estado (solo lo edita harness.py)
 ├── project-spec.md               # decisiones globales
 ├── init.sh                       # gate de verificación
+├── compose.yaml                  # servicio app del stack Python
+├── Dockerfile                    # imagen python:3.12-slim
 ├── opencode.jsonc                # solo adapter opencode: default_agent + denies
 ├── .opencode/                    # solo adapter opencode
-│   ├── agents/*.md               # 7 agentes con permisos por rol
-│   └── commands/*.md             # /next, /spec, /approve, /status
+│   ├── agents/*.md               # 8 agentes con permisos por rol
+│   └── commands/*.md             # /next, /architecture, /spec, /approve, /status
 ├── harness/
 │   ├── bin/harness.py            # máquina de estados
+│   ├── bin/stack_check.py        # contrato del stack
+│   ├── bin/run_verb.py           # ejecuta un verbo del manifiesto sin shell
 │   ├── process/*.md              # workflow, spec, trazabilidad, TDD, Gherkin, mutación, checkpoints
-│   ├── roles/*.md                # los seis roles
+│   ├── roles/*.md                # los ocho roles
 │   ├── schemas/feature_list.schema.json
 │   ├── templates/                # specs, features, informes
 │   ├── profiles/python-unittest/ # perfil vendorizado
@@ -91,20 +121,24 @@ mi-proyecto/
 │   └── reports/                  # judge_<name>.json, mutation_<name>.json
 ├── src/
 ├── tests/
-└── tools/mutate.py
+└── tools/
+    ├── mutate.py                 # mutador del perfil
+    └── clean.sh                  # down + limpieza de caché
 ```
 
 ## El pipeline
 
 ```
 pending
+  → architect         → docs/architecture.md sin TODO (solo la primera vez)
   → spec_partner      → project-spec.md + specs/<name>/{requirements,design,tasks}.md
   → gherkin_author    → features/<name>.feature
   → ⏸ aprobación humana (harness.py approve <id>)
   → in_progress
-  → tdd_craftsman     → código + tests + tasks [x]
+  → tdd_craftsman     → código + tests + tasks [x] + progress/tdd_<name>.md
   → judge             → .harness/reports/judge_<name>.json
   → mutation_tester   → .harness/reports/mutation_<name>.json
+  → repair            → si judge rechaza o mutación < umbral, vuelve TDD
   → done
 ```
 
@@ -129,10 +163,11 @@ python3 harness/bin/harness.py validate [--verify]
 2. `features/<name>.feature` con escenarios `@sN`.
 3. Aprobación válida (hash del `.feature` al día).
 4. Ninguna task `[ ]` en `tasks.md`.
-5. `.harness/reports/judge_<name>.json` con `"verdict": "APPROVED"`.
-6. `.harness/reports/mutation_<name>.json` con `"verdict": "PASS"` y
+5. `progress/tdd_<name>.md` con el mapa `R<n> → @sN → test`.
+6. `.harness/reports/judge_<name>.json` con `"verdict": "APPROVED"`.
+7. `.harness/reports/mutation_<name>.json` con `"verdict": "PASS"` y
    `score >= mutation.threshold`.
-7. `commands.verify` en verde.
+8. `commands.verify` en verde.
 
 Si falta cualquiera, la transición falla y explica qué falta. `--force` solo
 existe para una emergencia documentada.
@@ -160,14 +195,16 @@ y fusiona `opencode.jsonc`. Los detalles están en
 
 | Comando | Agente | Para qué |
 |---|---|---|
-| `/next` | `craftsman_lead` | Fase actual y acción exacta; se detiene en la puerta humana. |
+| `/next` | `craftsman_lead` | Avanza la fase: reporta la acción y la ejecuta. En `in_progress` recorre `tdd` → `judge` → `mutation` con `repair` interno (tope 3) hasta `done` o `blocked`. Solo se detiene en puertas humanas (`architecture`, `spec`, `approval`, `blocked`, `all_done`). |
+| `/architecture` | `architect` | Cierra `docs/architecture.md` con el humano antes de la primera feature. |
 | `/spec <id>` | `spec_partner` | Conversación EARS + `specs/<name>/`. |
 | `/approve <id>` | `gatekeeper` | Registra la aprobación del `.feature` y arranca `in_progress`. |
 | `/status` | `craftsman_lead` | Estado y `validate`, sin escribir nada. |
 
-`craftsman_lead`, `spec_partner` y `gatekeeper` son agentes **primarios**;
-el resto son subagentes. El lead no puede editar código ni lanzar la spec o
-la aprobación como subagentes: son actos humanos en la sesión actual.
+`craftsman_lead`, `architect`, `spec_partner` y `gatekeeper` son agentes
+**primarios**; el resto son subagentes. El lead no puede editar código ni
+lanzar la arquitectura, la spec o la aprobación como subagentes: son actos
+humanos en la sesión actual.
 
 Los denies globales (`edit *`, `shell *`, `subagent *`) también afectan a
 los agentes built-in de OpenCode. Es intencional: el arnés no quiere que un
@@ -180,12 +217,22 @@ propios no sobreviven a la normalización.
 
 ## Perfil `python-unittest`
 
-- Python 3.9+, `unittest`, sin dependencias externas.
+- Python 3.9+ en el host para el arnés; `unittest` y sin dependencias
+  externas en el proyecto.
 - Tests en `tests/test_*.py`; código en `src/`.
-- `./init.sh` valida estado, ejecuta tests y comprueba el contrato del stack.
+- `compose.yaml` + `Dockerfile` (`python:3.12-slim`) con el proyecto montado
+  en `/app`. El contenedor corre con el uid/gid del host
+  (`HARNESS_UID`/`HARNESS_GID`, por defecto 1000).
+- `./init.sh` valida estado, construye la imagen, ejecuta los tests en el
+  contenedor y comprueba el contrato del stack.
 - Mutador propio en `tools/mutate.py`; umbral 100 % por defecto.
+- `tools/clean.sh` baja el compose y borra la caché de Python.
 - Checkpoints de perfil P1–P4 en
   `harness/profiles/python-unittest/checkpoints.md`.
+
+Si el proyecto añade dependencias, edita `Dockerfile` (copia
+`requirements.txt` y ejecuta `pip install`). El código no se copia en la
+imagen: se monta desde el host en `/app`.
 
 Cambiar el umbral o el alcance de mutación es editar
 `harness.config.json`:
@@ -201,10 +248,15 @@ Todo stack declara cinco verbos en `harness.config.json`:
 | Verbo | Qué demuestra | Quién lo ejecuta | `python-unittest` |
 |---|---|---|---|
 | `check` | entorno y contrato listos | agente / CI | `./init.sh` |
-| `build` | el código compila | humano / CI | `python3 -m compileall -q src` |
-| `test` | la suite pasa | agente / CI | `python3 -m unittest discover -s tests -v` |
-| `mutation` | los tests muerden | agente / CI | `python3 tools/mutate.py {file}` |
-| `clean` | se borra lo generado | humano / CI | `find . -name __pycache__ -type d -prune -exec rm -rf {} +` |
+| `build` | el código compila | humano / CI | `docker compose build` |
+| `test` | la suite pasa | agente / CI | `docker compose run --rm app python3 -m unittest discover -s tests -v` |
+| `mutation` | los tests muerden | agente / CI | `docker compose run --rm app python3 tools/mutate.py {file}` |
+| `clean` | se borra lo generado | humano / CI | `bash tools/clean.sh` |
+
+El arnés (`harness.py`, `stack_check.py`, `run_verb.py`) corre en el host y
+necesita Python 3.9+. El stack (`test`, `mutation`) corre en la imagen;
+`init.sh` construye la imagen y ejecuta el verbo `test` del manifiesto con
+`run_verb.py`, sin duplicar comandos.
 
 `agent_forbidden` declara los verbos que ningún agente puede ejecutar:
 en `python-unittest` son `build` y `clean`. `stack_check.py` valida que
@@ -224,7 +276,8 @@ de `./init.sh`.
 
 1. Crea `profiles/<id>/profile.json` con `paths`, los cinco verbos
    (`check`, `build`, `test`, `mutation`, `clean`), `mutation`,
-   `documents`, `scaffold` y `gitignore`.
+   `documents`, `scaffold` y `gitignore`. Usa `scaffold.copy` para
+   `compose.yaml`/`Dockerfile` y `scaffold.files` para archivos vacíos.
 2. Añade `init.sh`, `tools/` (mutador o wrapper), `docs/` y
    `checkpoints.md`.
 3. Ejecuta `bootstrap.py init --profile <id>` y comprueba que el proyecto
@@ -262,13 +315,19 @@ Para cambiar de adapter, edita `"adapter"` en `harness.config.json` y
 ejecuta `render`: se retiran los archivos generados del adapter anterior y
 se crean los del nuevo.
 
+Desde 0.4.0 el perfil Python usa Docker Compose. `render` **no pisa**
+`harness.config.json`: si vienes de 0.3.x, cambia a mano los valores
+antiguos de `build`, `test`, `mutation` y `clean` (guíate por
+`config/harness.config.example.json`). `render` sí restaura `compose.yaml`,
+`Dockerfile` y `tools/clean.sh` si faltan, y no toca los que ya existan.
+
 ## Selftests del kit
 
 ```bash
 python3 -m unittest discover -s harness-kit/selftest -v
 ```
 
-61 tests cubren:
+131 tests cubren:
 
 - Transiciones válidas e inválidas, `--force`, `blocked_reason`.
 - Aprobación por hash, normalización de formato, invalidación al editar.
@@ -277,6 +336,10 @@ python3 -m unittest discover -s harness-kit/selftest -v
 - `validate` (duplicados, dos `in_progress`, aprobaciones caducadas).
 - Scaffold completo, `./init.sh` verde, `status`, `next`, `check`, `render`
   idempotente y preservación de artefactos del proyecto.
+- Perfil en Compose: layout con `compose.yaml`/`Dockerfile`/`tools/clean.sh`,
+  comandos del manifiesto y restauración sin pisar ediciones en `render`.
+- `run_verb.py`: verbos sin shell, sustitución de `{file}`, propagación de
+  exit code, `--root` y errores de configuración.
 - Adapter OpenCode: layout, modos, permisos por rol, comandos, denies
   globales, merge de `opencode.jsonc`, limpieza de generados obsoletos y
   cambio a `generic`.
@@ -299,8 +362,12 @@ python3 -m unittest discover -s harness-kit/selftest -v
 ## Limitaciones conocidas
 
 - **Python es runtime del arnés**, no del proyecto. Un repo Go/Node necesita
-  Python 3.9+ para `harness.py` y el mutador del perfil. Es una dependencia
-  del kit, documentada a propósito.
+  Python 3.9+ para `harness.py` y para los mutadores basados en Python. Es
+  una dependencia del kit, documentada a propósito.
+- **El perfil Python necesita Docker Compose en el host.** La primera vez
+  que se ejecuta `./init.sh` se construye la imagen y se descarga
+  `python:3.12-slim`; después queda en caché. `build` y `clean` son del
+  humano/CI, no de los agentes.
 - **Los permisos del adapter OpenCode no son un sandbox.** El allowlist de
   shell es cooperativo y depende del escáner de OpenCode; sirve para agentes
   que siguen el pipeline, no para un agente adversarial.

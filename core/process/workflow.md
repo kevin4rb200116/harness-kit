@@ -14,6 +14,7 @@ El arnés fusiona cuatro ideas que se refuerzan entre sí:
 
 ```
 pending
+  │  architecture    architect cierra docs/architecture.md (solo la primera vez)
   │  spec            spec_partner escribe project-spec.md +
   │                  specs/<name>/{requirements,design,tasks}.md
   ▼
@@ -23,8 +24,11 @@ spec_ready  ◄── set <id> spec_ready
   ▼
 in_progress ◄── approve <id>  (registra hash + aprobación)
   │  tdd             tdd_craftsman ejecuta tasks.md con Rojo → Verde → Refactor
+  │                  y escribe progress/tdd_<name>.md
   │  judge           judge verifica acceptance → R<n> → @sN → test
   │  mutation        mutation_tester comprueba que los tests muerden
+  │  repair          si judge rechaza o mutación no llega al umbral,
+  │                  tdd_craftsman repara y reescribe el informe TDD
   ▼
 done        ◄── set <id> done
 ```
@@ -32,6 +36,21 @@ done        ◄── set <id> done
 Cualquier estado puede pasar a `blocked` con una razón. `blocked → pending`
 se permite para reanudar. El resto de transiciones exige `--force` y debe
 quedar justificado en `progress/current.md`.
+
+### Paradas y transiciones
+
+| Parada (humano) | Acción humana | Transición (agente) |
+|---|---|---|
+| Arquitectura | `/architecture` | `architect` escribe `docs/architecture.md` |
+| Spec | `/spec <id>` | `spec_partner` escribe `project-spec.md` y `specs/<name>/` |
+| Contrato | `/approve <id>` | `gherkin_author` escribió el `.feature`; `gatekeeper` registra el hash |
+| Trabajo | `/next` | `tdd_craftsman` → `judge` → `mutation_tester`; `repair` interno |
+| Cierre | `/next` | `set done`; siguiente feature o `all_done` |
+| Bloqueo | resolver y `/next` | el lead reanuda |
+
+`mark_spec_ready`, `start`, `gherkin`, `tdd`, `judge`, `mutation` y `repair`
+son transiciones internas: el lead las recorre sin pedir intervención. Las
+paradas son las puertas humanas.
 
 ## Una sola feature a la vez
 
@@ -43,6 +62,7 @@ quedar justificado en `progress/current.md`.
 
 | Artefacto | Ruta | Quién lo escribe |
 |---|---|---|
+| Arquitectura | `docs/architecture.md` | `architect` |
 | Spec global | `project-spec.md` | `spec_partner` |
 | Requirements | `specs/<name>/requirements.md` | `spec_partner` |
 | Design | `specs/<name>/design.md` | `spec_partner` |
@@ -58,6 +78,21 @@ Los informes machine-readable de `.harness/reports/` son los que verifican
 las puertas. Los `.md` de `progress/` son para el humano: explican el
 razonamiento, no sustituyen al JSON.
 
+## La puerta de arquitectura
+
+Antes de la primera feature, `docs/architecture.md` debe estar cerrado:
+
+1. `next` devuelve `architecture` si el documento falta o conserva un
+   `TODO`.
+2. El lead se detiene y pide al humano que ejecute `/architecture`.
+3. El `architect` conversa las decisiones (módulos, fronteras, errores,
+   dependencias, no-objetivos) y escribe **solo** ese documento.
+4. Cuando no quedan `TODO`, `next` deja de devolver `architecture` y el
+   pipeline sigue con la spec.
+
+La puerta solo aplica a features `pending`: una feature ya aprobada o en
+curso no se bloquea retroactivamente.
+
 ## La puerta humana
 
 La aprobación del contrato es **conversación + marcador en disco**:
@@ -72,6 +107,30 @@ Si el `.feature` cambia después, el hash deja de coincidir, la aprobación
 caduca y `validate` (y por tanto `init.sh`) falla hasta que el humano vuelva
 a aprobar. Un cambio de formato (LF/CRLF, espacios finales) no invalida la
 aprobación.
+
+## El informe TDD y el bucle de reparación
+
+`progress/tdd_<name>.md` es el handoff del `tdd_craftsman` al `judge`.
+`next` no devuelve `judge` si el informe falta o no contiene el mapa
+`R<n> → @sN → test`; devuelve `tdd` con el hueco concreto.
+
+Cuando el `judge` rechaza o la mutación queda por debajo del umbral:
+
+1. `next` devuelve `repair` y muestra el motivo vigente (rechazo o
+   supervivientes).
+2. El lead relanza `tdd_craftsman` con ese motivo; no lanza `judge` ni
+   `mutation_tester` todavía.
+3. El TDD corrige tests/código y **reescribe** `progress/tdd_<name>.md`.
+4. Al ser el informe más reciente que el veredicto, `next` vuelve a
+   `judge`; tras aprobar, vuelve a `mutation`.
+
+El informe TDD es, por tanto, el epoch de la ronda: si no se reescribe,
+el pipeline no avanza. No se baja el umbral ni se edita el mutador para
+salir del bucle.
+
+Tope: **3 rondas de reparación**. Si la cuarta vuelve a fallar, el lead
+bloquea la feature (`harness.py block <id> "reparación sin converger"`) y
+reporta los motivos; no se gira en bucle.
 
 ## La máquina de estados
 
@@ -91,15 +150,17 @@ python3 harness/bin/harness.py validate         # coherencia global
 2. `features/<name>.feature` con escenarios `@sN`.
 3. Aprobación válida (hash al día).
 4. Ninguna task `[ ]` en `tasks.md`.
-5. `.harness/reports/judge_<name>.json` con `"verdict": "APPROVED"`.
-6. `.harness/reports/mutation_<name>.json` con `"verdict": "PASS"` y
+5. `progress/tdd_<name>.md` con el mapa `R<n> → @sN → test`.
+6. `.harness/reports/judge_<name>.json` con `"verdict": "APPROVED"`.
+7. `.harness/reports/mutation_<name>.json` con `"verdict": "PASS"` y
    `score >= mutation.threshold`.
-7. `commands.verify` en verde (por defecto `./init.sh`).
+8. `commands.verify` en verde (por defecto `./init.sh`).
 
 ## Reglas duras
 
 - No hay código de producción sin un test rojo que lo pida.
 - No hay implementación sin `.feature` aprobado.
+- No hay primera feature sin `docs/architecture.md` cerrado (sin `TODO`).
 - No hay cierre sin judge aprobado y mutación por encima del umbral.
 - Los subagentes no editan `feature_list.json`: usan `harness.py`.
 - Los roles no editan artefactos de otro rol (ver permisos del adapter).

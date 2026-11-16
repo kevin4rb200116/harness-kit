@@ -21,7 +21,30 @@ cd ../demo-opencode
 
 Deberías ver `.opencode/agents/`, `.opencode/commands/` y `opencode.jsonc`.
 
-## 1. Declarar la feature (humano)
+## 1. Arquitectura (`/architecture`)
+
+Antes de la primera feature, el proyecto necesita su estándar de calidad.
+`docs/architecture.md` llega con `TODO`; el primer `/next` se detiene en la
+fase `architecture`:
+
+```text
+/architecture
+```
+
+`architect` conversa contigo los módulos, las fronteras de imports, la
+estrategia de errores, las dependencias y los no-objetivos. Al terminar
+escribe solo `docs/architecture.md` sin `TODO`.
+
+Vuelve al lead:
+
+```text
+/next
+```
+
+Ahora la fase es `spec` (o `mark_spec_ready` si aún no hay features) y el
+pipeline sigue.
+
+## 2. Declarar la feature (humano)
 
 El estado solo lo escribe `harness.py`, pero **añadir** features es una
 decisión humana. Edita `feature_list.json`:
@@ -43,7 +66,7 @@ decisión humana. Edita `feature_list.json`:
 Abre OpenCode en `demo-opencode`. El agente por defecto es
 `craftsman_lead`.
 
-## 2. Spec (`/spec`)
+## 3. Spec (`/spec`)
 
 ```text
 /spec 1
@@ -68,7 +91,7 @@ Vuelve al lead:
 
 El lead ejecuta `set 1 spec_ready` y lanza `gherkin_author`.
 
-## 3. Contrato (`/next`)
+## 4. Contrato (`/next`)
 
 `gherkin_author` escribe `features/greet.feature` con `@s1`, `@s2` y la
 tabla `R1 → @s1`, `R2 → @s2`. El lead devuelve una línea y **se detiene**.
@@ -88,9 +111,10 @@ Lee el `.feature`. Si quieres cambios, pídeselos al lead: volverá a lanzar
 
 La feature pasa a `in_progress`.
 
-## 4. TDD (`/next`)
+## 5. Trabajo (`/next`): TDD → judge → mutación
 
-El lead lanza `tdd_craftsman`. El artesano, un test a la vez:
+Un solo `/next` recorre toda la cadena; el lead no te pide que avances fase
+a fase. Primero lanza `tdd_craftsman`. El artesano, un test a la vez:
 
 1. escribe un test rojo para `@s1`;
 2. implementa lo mínimo en `src/`;
@@ -99,12 +123,14 @@ El lead lanza `tdd_craftsman`. El artesano, un test a la vez:
 5. repite con `@s2`.
 
 Deja `progress/tdd_greet.md` con el mapa `R<n> → @sN → test` y ejecuta
-test + verify.
+test + verify. Sin ese informe, `next` no pasa a `judge`: el lead relanza
+al artesano en vez de escribirlo él.
 
-## 5. Judge y mutación (`/next`, dos veces)
+## 6. Judge y mutación (dentro del mismo `/next`)
 
-`judge` revisa trazabilidad, tasks, disciplina TDD y calidad, ejecuta
-`./init.sh` y escribe:
+Cuando el TDD termina, el lead sigue con `judge` y `mutation_tester` sin
+devolverte el control. `judge` revisa trazabilidad, tasks, disciplina TDD y
+calidad, ejecuta `./init.sh` y escribe:
 
 ```text
 progress/judge_greet.md
@@ -118,7 +144,13 @@ progress/mutation_greet.md
 .harness/reports/mutation_greet.json {"verdict": "PASS", "score": 100, ...}
 ```
 
-## 6. Cierre
+Si `judge` rechaza o la mutación queda por debajo del umbral, `/next`
+devuelve `repair` con el motivo. El lead relanza `tdd_craftsman`; el
+artesano añade el test que falta y reescribe `progress/tdd_greet.md`.
+Después se repiten `judge` y mutación. No se baja el umbral. Tope: 3 rondas;
+a la cuarta, el lead bloquea la feature con el motivo.
+
+## 7. Cierre
 
 ```text
 /next

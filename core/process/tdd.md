@@ -40,7 +40,9 @@ Cada escenario `@sN` genera uno o más ciclos. El orden recomendado:
 3. Un test por comportamiento observable, con asserts fuertes.
 
 El `tdd_craftsman` anota el ciclo en `progress/tdd_<name>.md`, no en el
-código. La evidencia es el historial de tests, no una promesa.
+código. La evidencia es el historial de tests, no una promesa. Ese informe
+es una puerta: `harness.py next` no pasa a `judge` si falta o si no
+contiene el mapa `R<n> → @sN → test`.
 
 ## Lo que no es TDD
 

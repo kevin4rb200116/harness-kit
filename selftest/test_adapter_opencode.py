@@ -18,6 +18,7 @@ import bootstrap  # noqa: E402  (import después de ajustar sys.path)
 
 AGENTS = (
     "craftsman_lead",
+    "architect",
     "spec_partner",
     "gherkin_author",
     "tdd_craftsman",
@@ -27,11 +28,12 @@ AGENTS = (
 )
 COMMANDS = {
     "next": "craftsman_lead",
+    "architecture": "architect",
     "spec": "spec_partner",
     "approve": "gatekeeper",
     "status": "craftsman_lead",
 }
-PRIMARY = {"craftsman_lead", "spec_partner", "gatekeeper"}
+PRIMARY = {"craftsman_lead", "architect", "spec_partner", "gatekeeper"}
 
 
 def frontmatter(text: str) -> str:
@@ -129,6 +131,22 @@ class OpenCodeAdapterTest(unittest.TestCase):
                 f"{name} debería ser {mode}",
             )
 
+    def test_agents_share_the_entry_point(self) -> None:
+        self.assert_ok(self.init())
+        for name in AGENTS:
+            text = self.agent(name)
+            self.assertIn("## Entrada", text, f"{name} sin punto de entrada")
+            self.assertIn("AGENTS.md", text, f"{name} no remite a AGENTS.md")
+
+    def test_project_roles_share_the_entry_point(self) -> None:
+        self.assert_ok(self.init())
+        roles = sorted((self.target / "harness" / "roles").glob("*.md"))
+        self.assertEqual(len(roles), 8, "faltan roles en harness/roles/")
+        for role in roles:
+            text = role.read_text(encoding="utf-8")
+            self.assertIn("## Entrada", text, f"{role.name} sin punto de entrada")
+            self.assertIn("AGENTS.md", text, f"{role.name} no remite a AGENTS.md")
+
     # -- permisos --------------------------------------------------------
 
     def test_lead_cannot_edit_or_spawn_the_human_gates(self) -> None:
@@ -154,6 +172,7 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assertNotIn("resource: gatekeeper", text)
         self.assertNotIn("resource: explore", text)
         self.assertNotIn("python3 -m unittest", text)
+        self.assertNotIn("docker compose run", text)
 
     def test_gatekeeper_only_runs_approve(self) -> None:
         self.assert_ok(self.init())
@@ -161,6 +180,14 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assertIn('resource: "python3 harness/bin/harness.py approve *"', text)
         self.assertEqual(text.count("effect: allow"), 1, text)
         self.assertNotIn("action: edit\n    resource: \"progress", text)
+
+    def test_architect_only_writes_the_architecture_document(self) -> None:
+        self.assert_ok(self.init())
+        text = frontmatter(self.agent("architect"))
+        self.assertIn('resource: "docs/architecture.md"', text)
+        self.assertEqual(text.count("effect: allow"), 1, text)
+        for forbidden in ("src/*", "tests/*", "features/*", "specs/*"):
+            self.assertNotIn(f'resource: "{forbidden}"', text)
 
     def test_tdd_uses_profile_paths_and_commands(self) -> None:
         self.assert_ok(self.init())
@@ -172,6 +199,45 @@ class OpenCodeAdapterTest(unittest.TestCase):
             'resource: "docker compose run --rm app python3 -m unittest *"', text
         )
         self.assertIn('resource: "./init.sh *"', text)
+        self.assertIn('resource: "python3 harness/bin/harness.py status *"', text)
+
+    def test_judge_and_mutation_can_read_the_status(self) -> None:
+        self.assert_ok(self.init())
+        for name in ("judge", "mutation_tester"):
+            self.assertIn(
+                'resource: "python3 harness/bin/harness.py status *"',
+                frontmatter(self.agent(name)),
+                name,
+            )
+
+    def test_agents_are_warned_about_hidden_paths_and_shell(self) -> None:
+        self.assert_ok(self.init())
+        for name in ("craftsman_lead", "tdd_craftsman", "judge", "mutation_tester"):
+            body = self.agent(name)
+            self.assertIn("`read`, `glob` y `grep`", body, name)
+            self.assertIn("`.harness/`", body, name)
+            self.assertIn("No uses `shell` para `ls`", body, name)
+
+    def test_lead_brief_requires_the_tdd_report(self) -> None:
+        self.assert_ok(self.init())
+        body = self.agent("craftsman_lead")
+        self.assertIn("progress/tdd_<name>.md", body)
+        self.assertIn("Brief obligatorio", body)
+        self.assertIn("no inventes comandos", body.lower())
+
+    def test_next_documents_the_repair_loop(self) -> None:
+        self.assert_ok(self.init())
+        body = self.command("next")
+        self.assertIn("`repair`", body)
+        self.assertIn("tdd_craftsman", body)
+        self.assertIn("progress/tdd_<name>.md", body)
+
+    def test_mutation_runs_in_the_container(self) -> None:
+        self.assert_ok(self.init())
+        text = frontmatter(self.agent("mutation_tester"))
+        self.assertIn(
+            'resource: "docker compose run --rm app python3 tools/mutate.py *"', text
+        )
 
     def test_profile_keeps_human_verbs_out_of_the_agent_allowlist(self) -> None:
         profile = json.loads(
@@ -225,8 +291,31 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assert_ok(self.init())
         self.assertIn("agent: spec_partner", frontmatter(self.command("spec")))
         self.assertIn("agent: gatekeeper", frontmatter(self.command("approve")))
+        self.assertIn("agent: architect", frontmatter(self.command("architecture")))
         self.assertIn("$ARGUMENTS", self.command("spec"))
         self.assertIn("$ARGUMENTS", self.command("approve"))
+        self.assertIn("$ARGUMENTS", self.command("architecture"))
+
+    def test_next_advances_instead_of_only_reporting(self) -> None:
+        self.assert_ok(self.init())
+        text = re.sub(r"\s+", " ", self.command("next").lower())
+        self.assertIn("ejecuta la acción", text)
+        self.assertIn("reportar no es avanzar", text)
+        for phase in ("mark_spec_ready", "gherkin", "tdd", "judge", "mutation"):
+            self.assertIn(phase, text)
+        for gate in ("architecture", "spec", "approval", "blocked", "all_done"):
+            self.assertIn(gate, text)
+
+    def test_lead_role_requires_executing_the_phase(self) -> None:
+        self.assert_ok(self.init())
+        for path in (
+            self.target / "harness" / "roles" / "craftsman_lead.md",
+            self.target / ".opencode" / "agents" / "craftsman_lead.md",
+        ):
+            text = re.sub(
+                r"\s+", " ", path.read_text(encoding="utf-8").lower()
+            )
+            self.assertIn("reportar no es avanzar", text)
 
     # -- configuración ---------------------------------------------------
 

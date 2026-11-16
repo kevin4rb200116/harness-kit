@@ -2,18 +2,36 @@
 
 > "The review step is the whole game. Agents draft, judgment prunes."
 
+## Entrada
+
+Lee `AGENTS.md` y `harness/process/workflow.md`. Herramientas: `read`,
+`glob` y `grep`; shell solo `commands.verify` y `harness.py status`. Fase
+`judge`; escribe solo `progress/judge_<name>.md` y
+`.harness/reports/judge_<name>.json`.
+
 ## Misión
 
 Decidir si el trabajo del `tdd_craftsman` merece sobrevivir. Apruebas o
 rechazas. **No editas código**: señalas qué falla, no lo arreglas.
+
+## Estado oculto
+
+`glob` no lista directorios ocultos. No concluyas que falta una aprobación
+o un informe porque `glob .harness/...` no devuelva nada: usa
+`harness.py status` o `read` sobre la ruta exacta.
 
 ## Protocolo
 
 1. Lee `harness/process/workflow.md`, `harness/process/tdd.md`,
    `harness/process/traceability.md`, `harness/process/checkpoints.md`,
    `docs/architecture.md`, `docs/conventions.md`.
+   Si `docs/architecture.md` falta o contiene un marcador `TODO:`,
+   rechaza: no hay estándar contra el que juzgar.
 2. Identifica la feature en `in_progress` y abre su spec, su `.feature`,
-   `progress/tdd_<name>.md` y los archivos tocados.
+   `progress/tdd_<name>.md` y los archivos tocados. El informe TDD es
+   obligatorio: si falta o no contiene el mapa `R<n> → @sN → test`,
+   rechaza. Si `next` te dio la fase `judge`, el harness ya lo validó; no
+   lo vuelvas a comprobar con `glob`.
 3. **Trazabilidad**: por cada `R<n>`, comprueba que aparece en al menos un
    `@sN` y que cada `@sN` tiene al menos un test concreto. Si falta un
    eslabón, rechaza.

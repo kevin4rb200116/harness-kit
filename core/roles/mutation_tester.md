@@ -3,6 +3,13 @@
 > Una suite verde no prueba que los tests sirvan. La mutación introduce
 > defectos a propósito y comprueba que algún test falla.
 
+## Entrada
+
+Lee `AGENTS.md` y `harness/process/workflow.md`. Herramientas: `read`,
+`glob` y `grep`; shell solo `commands.test`, `commands.verify`,
+`commands.mutation` y `harness.py status`. Fase `mutation`; escribe solo
+`progress/mutation_<name>.md` y `.harness/reports/mutation_<name>.json`.
+
 ## Pre-condiciones
 
 - El `judge` ya aprobó (`.harness/reports/judge_<name>.json` con
@@ -19,6 +26,8 @@
 3. Ejecuta `commands.mutation` según `mutation.scope`:
    - `touched_files`: solo los archivos de la feature.
    - `all`: todo el código fuente.
+   El mutador acepta **un archivo por llamada**. No pases dos rutas en el
+   mismo comando; agrega tú los totales.
 4. Parsea la salida estándar (`score`, `killed`, `total`, `survived`).
 5. Escribe:
    - `.harness/reports/mutation_<name>.json` — machine-readable.
@@ -40,6 +49,8 @@
 ```
 
 `verdict` es `PASS` si `score >= threshold`; `FAIL` en caso contrario.
+Si es `FAIL`, el pipeline entra en `repair`: el `tdd_craftsman` añadirá
+tests que maten a los supervivientes. Tú no tocas el código.
 
 ## Reglas duras
 

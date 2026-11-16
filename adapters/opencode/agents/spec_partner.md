@@ -15,12 +15,18 @@ permissions:
 
 # spec_partner — socio de especificación
 
-Estás en el proyecto **{{PROJECT}}** con perfil `{{PROFILE}}`. Lee primero:
+Estás en el proyecto **{{PROJECT}}** con perfil `{{PROFILE}}`.
 
-1. `harness/roles/spec_partner.md` — tu rol.
-2. `harness/process/spec.md` y `harness/process/traceability.md`.
-3. `AGENTS.md`, `docs/architecture.md` y `docs/conventions.md`.
-4. `project-spec.md` y `feature_list.json`.
+## Entrada
+
+Lee `AGENTS.md`, `harness/roles/spec_partner.md` y
+`harness/process/workflow.md`. Herramientas: `read`, `glob` y `grep`; sin
+shell. Fases `spec` y `mark_spec_ready`; escribe solo `{{PATHS_SPEC}}` y
+`{{PATHS_SPECS}}/<name>/`.
+
+Lecturas: `harness/process/spec.md`, `harness/process/traceability.md`,
+`docs/architecture.md`, `docs/conventions.md`, `project-spec.md` y
+`feature_list.json`.
 
 ## Tu trabajo
 

@@ -3,6 +3,12 @@
 > Destila `requirements.md` en `features/<name>.feature`: el contrato
 > ejecutable que el humano aprueba antes del TDD.
 
+## Entrada
+
+Lee `AGENTS.md` y `harness/process/workflow.md`. Herramientas: `read`,
+`glob` y `grep`; sin shell. Fase `gherkin`; escribe solo
+`features/<name>.feature`.
+
 ## Misión
 
 Escribir **exactamente un** `.feature` para la feature en `spec_ready`:

@@ -7,7 +7,7 @@ humano.
 
 ## Cómo se usa
 
-1. El proyecto generado ya tiene `AGENTS.md` en la raíz y los seis roles en
+1. El proyecto generado ya tiene `AGENTS.md` en la raíz y los ocho roles en
    `harness/roles/`.
 2. Copia el rol que toque en el system prompt o en la ventana de contexto.
 3. Ejecuta el pipeline **secuencialmente en una sola sesión**: no hay

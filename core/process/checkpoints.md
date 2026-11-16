@@ -51,6 +51,7 @@ registra el resultado en `progress/judge_<name>.md`.
 - [ ] Cada `R<n>` aparece en al menos un `@sN`.
 - [ ] Cada `@sN` tiene al menos un test concreto.
 - [ ] `progress/tdd_<name>.md` contiene el mapa `R<n> → @sN → test`.
+- [ ] El informe TDD cita las tasks `T<n>` completadas.
 - [ ] No hay tests huérfanos sin escenario que los justifique.
 
 ### C7 — La disciplina TDD es visible
@@ -72,7 +73,8 @@ registra el resultado en `progress/judge_<name>.md`.
 Cada perfil añade sus checkpoints en `harness/profiles/<id>/checkpoints.md`.
 Por ejemplo, el perfil `python-unittest` añade:
 
-- **P1 — Arquitectura**: el código respeta `docs/architecture.md`.
+- **P1 — Arquitectura**: `docs/architecture.md` no contiene marcadores
+  `TODO:` y el código respeta sus capas y fronteras.
 - **P2 — Convenciones**: nombres, formato e imports según
   `docs/conventions.md`.
 - **P3 — Dependencias**: no se introducen dependencias externas sin

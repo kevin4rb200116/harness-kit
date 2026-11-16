@@ -1,8 +1,7 @@
 # Adapter: opencode
 
-Adapter para **OpenCode V2**. Expone los seis roles del arnés —más un
-`gatekeeper` específico para la puerta humana— como agentes nativos y los
-cuatro comandos del día a día como comandos slash. No cambia el método:
+Adapter para **OpenCode V2**. Expone los ocho roles del arnés como agentes nativos y los
+cinco comandos del día a día como comandos slash. No cambia el método:
 `harness/process/workflow.md` sigue siendo la fuente de verdad y
 `harness/bin/harness.py` sigue siendo la única puerta.
 
@@ -13,6 +12,7 @@ opencode.jsonc                     # default_agent + denies globales (fusionado)
 .opencode/
 ├── agents/
 │   ├── craftsman_lead.md          # primary
+│   ├── architect.md               # primary
 │   ├── spec_partner.md            # primary
 │   ├── gherkin_author.md          # subagent
 │   ├── tdd_craftsman.md           # subagent
@@ -21,6 +21,7 @@ opencode.jsonc                     # default_agent + denies globales (fusionado)
 │   └── gatekeeper.md              # primary
 └── commands/
     ├── next.md                    # /next
+    ├── architecture.md            # /architecture
     ├── spec.md                    # /spec
     ├── approve.md                 # /approve
     └── status.md                  # /status
@@ -34,14 +35,21 @@ adapter y **conserva** los tuyos (sin marca).
 
 | Comando | Agente | Para qué |
 |---|---|---|
-| `/next` | `craftsman_lead` | Lee la fase actual y dice la acción exacta. Se detiene en la puerta humana. |
+| `/next` | `craftsman_lead` | Avanza la fase: reporta la acción y la ejecuta. En `in_progress` recorre `tdd` → `judge` → `mutation` con `repair` interno (tope 3) hasta `done` o `blocked`. Solo se detiene en puertas humanas. |
+| `/architecture` | `architect` | Cierra `docs/architecture.md` con el humano antes de la primera feature. |
 | `/spec <id>` | `spec_partner` | Abre la conversación EARS y escribe `specs/<name>/`. |
 | `/approve <id>` | `gatekeeper` | Registra la aprobación humana del `.feature` y mueve a `in_progress`. |
 | `/status` | `craftsman_lead` | Tabla de estado + `validate`, sin cambiar nada. |
 
-`spec_partner` y `gatekeeper` se ejecutan en la **sesión actual**
-(`subagent: false`): la spec es una conversación y la aprobación es un acto
-humano, no una llamada de herramienta.
+`architect`, `spec_partner` y `gatekeeper` se ejecutan en la **sesión
+actual** (`subagent: false`): la arquitectura y la spec son conversaciones y
+la aprobación es un acto humano, no una llamada de herramienta.
+
+`/next` no es un comando de solo lectura: después de reportar la fase
+ejecuta la acción mecánica (`set` o lanzar el subagente). En `in_progress`
+recorre `tdd` → `judge` → `mutation` con `repair` interno (tope 3) hasta
+`done` o `blocked`. Se detiene solo en las puertas humanas (`architecture`,
+`spec`, `approval`, `blocked`, `all_done`). **Reportar no es avanzar.**
 
 ## Matriz de permisos
 
@@ -52,11 +60,12 @@ gana la última coincidencia.
 | Agente | Edita | Shell | Subagentes |
 |---|---|---|---|
 | `craftsman_lead` | `progress/current.md`, `progress/history.md` | `harness.py` (sin `approve` ni `--force`), `./init.sh *` | `gherkin_author`, `tdd_craftsman`, `judge`, `mutation_tester` |
+| `architect` | `docs/architecture.md` | — | — |
 | `spec_partner` | `project-spec.md`, `specs/*` | — | — |
 | `gherkin_author` | `features/*` | — | — |
-| `tdd_craftsman` | `src/*`, `tests/*`, `specs/*/tasks.md`, `progress/*` | test, verify | — |
-| `judge` | `progress/judge_*`, `.harness/reports/judge_*` | test, verify | — |
-| `mutation_tester` | `progress/mutation_*`, `.harness/reports/mutation_*` | test, verify, mutation | — |
+| `tdd_craftsman` | `src/*`, `tests/*`, `specs/*/tasks.md`, `progress/*` | test, verify, `status` | — |
+| `judge` | `progress/judge_*`, `.harness/reports/judge_*` | test, verify, `status` | — |
+| `mutation_tester` | `progress/mutation_*`, `.harness/reports/mutation_*` | test, verify, mutation, `status` | — |
 | `gatekeeper` | — | `harness.py approve *` | — |
 
 Denies globales en `opencode.jsonc`:
@@ -78,15 +87,16 @@ deny global. Por eso el lead **no** puede lanzarlo como subagente.
 ## Flujo típico
 
 ```text
+/next                 → fase architecture
+/architecture         → conversación + docs/architecture.md sin TODO
 /next                 → fase spec
 /spec check-links     → conversación + specs/check-links/*.md
-/next                 → el lead marca spec_ready
-/next                 → el lead lanza gherkin_author
+/next                 → marca spec_ready, lanza gherkin_author y para
                       → ⏸ el humano lee features/check-links.feature
 /approve check-links  → gatekeeper registra el hash
-/next                 → el lead arranca tdd_craftsman
-                      → judge → mutation_tester
-/next                 → el lead cierra con set done
+/next                 → tdd → judge → mutation_tester (repair interno)
+                      → done o blocked, sin más llamadas
+/next                 → siguiente feature o all_done
 /status               → estado y validate
 ```
 
@@ -123,14 +133,16 @@ Si un comando falla con `permission.rejected`, ejecútalo solo antes de
 sospechar del adapter.
 
 Los agentes solo reciben `test`, `verify` (el gate `./init.sh`) y
-`mutation`. Los verbos `build` y `clean` están en `agent_forbidden`: los
-ejecuta el humano a cargo o el flujo de integración. `clean` es destructivo
-y se queda fuera de las sesiones de agente por diseño.
+`mutation`, con los patrones del manifiesto. En `python-unittest`, `test` y
+`mutation` se ejecutan con `docker compose run --rm app ...`. Los verbos
+`build` y `clean` están en `agent_forbidden`: los ejecuta el humano a cargo
+o el flujo de integración. `clean` es destructivo y se queda fuera de las
+sesiones de agente por diseño.
 
 ## Limitaciones
 
 - Los permisos no son un sandbox: el allowlist de shell es cooperativo.
   OpenCode escanea los comandos, pero la autoridad real es del usuario.
-- `spec_partner` no puede ejecutar `harness.py`; al terminar la spec pide
-  volver al lead y ejecutar `/next`.
+- `spec_partner` y `architect` no pueden ejecutar `harness.py`; al terminar
+  piden volver al lead y ejecutar `/next`.
 - El adapter no fija un `model`: usa el que tengas configurado en OpenCode.

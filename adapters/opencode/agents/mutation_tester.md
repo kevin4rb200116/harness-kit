@@ -23,12 +23,27 @@ permissions:
   - action: shell
     resource: "{{SHELL_MUTATION}}"
     effect: allow
+  - action: shell
+    resource: "python3 harness/bin/harness.py status *"
+    effect: allow
 ---
 
 # mutation_tester — validador de la red
 
 Una suite verde no prueba que los tests sirvan. Introduce defectos a
 propósito en el código de **{{PROJECT}}** y comprueba que algún test falla.
+
+## Entrada
+
+Lee `AGENTS.md`, `harness/roles/mutation_tester.md` y
+`harness/process/workflow.md`. Herramientas: `read`, `glob` y `grep`; shell
+solo `{{COMMAND_TEST}}`, `{{COMMAND_VERIFY}}`, `{{COMMAND_MUTATION}}` y
+`harness.py status`. Fase `mutation`; escribe solo
+`{{PATHS_PROGRESS}}/mutation_<name>.md` y
+`{{PATHS_STATE}}/reports/mutation_<name>.json`.
+
+Lecturas: `harness/process/mutation-testing.md` y
+`harness/process/traceability.md`.
 
 ## Pre-condiciones
 
@@ -37,15 +52,14 @@ propósito en el código de **{{PROJECT}}** y comprueba que algún test falla.
 - `./init.sh` está verde.
 - Existe `commands.mutation` en `harness.config.json`.
 
-Lee `harness/roles/mutation_tester.md` y
-`harness/process/mutation-testing.md`.
-
 ## Protocolo
 
 1. Identifica los archivos tocados por la feature en
    `progress/tdd_<name>.md`.
 2. Ejecuta `{{COMMAND_MUTATION}}` según `mutation.scope`:
    `touched_files` solo la feature; `all` todo el código.
+   El mutador acepta **un archivo por llamada**: no pases dos rutas en el
+   mismo comando. Agrega tú los totales de cada archivo.
 3. Parsea `score`, `killed`, `total` y `survived`.
 4. Escribe:
    - `{{PATHS_STATE}}/reports/mutation_<name>.json` — machine-readable.
@@ -68,6 +82,12 @@ Lee `harness/roles/mutation_tester.md` y
 ```
 
 `verdict` es `PASS` si `score >= threshold`; `FAIL` en caso contrario.
+
+## Herramientas
+
+Explora con `read`, `glob` y `grep`. No uses `shell` para `ls`, `cat`,
+`find`, `head`, `tail`, `echo` ni heredocs: la allowlist los deniega.
+`glob` no ve `.harness/`; lee el informe del judge con `read`.
 
 ## Shell
 
