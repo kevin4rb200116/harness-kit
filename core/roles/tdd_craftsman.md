@@ -66,6 +66,10 @@ Cuando el lead te pasa un `judge` `REJECTED` o una mutación `FAIL`:
 - No edites el `.feature`, `requirements.md`, `design.md` ni
   `feature_list.json`.
 - No edites el informe del judge ni el de mutación.
+- No toques producción para simular un mutante: el `mutation_tester` es
+  quien muta y quien verifica. Si necesitas comprobar a mano que un test
+  mata un cambio, haz el cambio mínimo, revierte en la misma llamada y
+  nunca uses `replaceAll`.
 - No bajes `mutation.threshold` ni edites `tools/mutate.py` para hacer
   pasar la puerta.
 - No añadas dependencias externas sin una decisión en `design.md`.

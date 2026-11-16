@@ -59,7 +59,7 @@ gana la última coincidencia.
 
 | Agente | Edita | Shell | Subagentes |
 |---|---|---|---|
-| `craftsman_lead` | `progress/current.md`, `progress/history.md` | `harness.py` (sin `approve` ni `--force`), `./init.sh *` | `gherkin_author`, `tdd_craftsman`, `judge`, `mutation_tester` |
+| `craftsman_lead` | `progress/current.md` (history vía `note --history`) | `harness.py` (sin `approve` ni `--force`), `./init.sh *` | `gherkin_author`, `tdd_craftsman`, `judge`, `mutation_tester` |
 | `architect` | `docs/architecture.md` | — | — |
 | `spec_partner` | `project-spec.md`, `specs/*` | — | — |
 | `gherkin_author` | `features/*` | — | — |

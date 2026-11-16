@@ -109,5 +109,5 @@ herramienta: no uses `echo $?`.
 - No edites código, tests, specs, features, `feature_list.json` ni los
   informes de mutación.
 - Solo escribes tu `.md` y tu `.json`.
-- Devuelve **una sola línea**: `APPROVED` o `REJECTED` y el motivo
-  principal.
+- Devuelve **una sola línea**: `APPROVED` o `REJECTED`, el motivo
+  principal y `leído: <archivos>`.

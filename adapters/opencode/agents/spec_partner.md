@@ -54,6 +54,6 @@ Después escribe, solo dentro de `{{PATHS_SPEC}}` y `{{PATHS_SPECS}}/`:
 
 ## Cierre
 
-Resume la spec en 5 líneas y pide al humano que vuelva al `craftsman_lead`
-y ejecute `/next`. El lead marcará `spec_ready` con `harness.py`; tú no
-puedes hacerlo.
+Resume la spec en 5 líneas, termina con `leído: <archivos>` y pide al
+humano que vuelva al `craftsman_lead` y ejecute `/next`. El lead marcará
+`spec_ready` con `harness.py`; tú no puedes hacerlo.

@@ -8,9 +8,6 @@ permissions:
   - action: edit
     resource: "{{PATHS_PROGRESS}}/current.md"
     effect: allow
-  - action: edit
-    resource: "{{PATHS_PROGRESS}}/history.md"
-    effect: allow
   - action: shell
     resource: "*"
     effect: deny
@@ -69,7 +66,8 @@ Lee `AGENTS.md`, `harness/roles/craftsman_lead.md` y
 `feature_list.json`. Herramientas: `read`, `glob` y `grep`; shell solo
 `harness.py` (`status`, `next`, `set`, `block`, `note`, `validate`) y
 `./init.sh`, nunca `approve` ni `--force`. Coordinas todas las fases y
-escribes solo `progress/current.md` y `progress/history.md`.
+escribes solo `progress/current.md`; `progress/history.md` es append-only y
+se alimenta con `harness.py note --history`.
 
 ## Arranque
 
@@ -88,7 +86,8 @@ paralelo.
 - Ejecutar `harness.py` (`status`, `next`, `set`, `block`, `note`,
   `validate`) y `./init.sh`. No puedes ejecutar `approve`: esa es la puerta
   del `gatekeeper`. Tampoco puedes usar `--force`.
-- Editar **solo** `progress/current.md` y `progress/history.md`.
+- Editar **solo** `progress/current.md`. `progress/history.md` es
+  append-only: se añade con `harness.py note --history`, nunca se reescribe.
 - Lanzar los subagentes `gherkin_author`, `tdd_craftsman`, `judge` y
   `mutation_tester`.
 
@@ -168,19 +167,23 @@ reporta los motivos/supervivientes al humano.
 ## Contrato con subagentes
 
 Un subagente = un artefacto. Los artefactos van a disco; el subagente
-devuelve **una sola línea** de resumen. Tú lees el disco, no parafraseas
-informes. No lances dos subagentes que escriban el mismo artefacto.
+devuelve **una sola línea** de resumen que termina con `leído: <archivos>`
+(los que realmente abrió). Tú lees el disco, no parafraseas informes. No
+lances dos subagentes que escriban el mismo artefacto.
 
 **Brief obligatorio.** No improvises el prompt ni lo trunques. Incluye
 siempre:
 
-1. `Actúa como <rol>. Lee harness/roles/<rol>.md`.
+1. `Actúa como <rol>. Lee AGENTS.md y harness/roles/<rol>.md`.
 2. Feature `id`/`name`, estado y rutas de spec y `.feature`.
-3. Artefactos exactos que debe escribir y la línea de resumen.
-4. Herramientas: `read`/`glob`/`grep`; `shell` solo comandos permitidos;
+3. La **lista de lecturas obligatorias**: spec de la feature, `.feature`,
+   `docs/architecture.md`, `docs/conventions.md`, `progress/current.md` y,
+   en `repair`, el informe fallido.
+4. Artefactos exactos que debe escribir y la línea de resumen.
+5. Herramientas: `read`/`glob`/`grep`; `shell` solo comandos permitidos;
    nada de `ls`, `cat`, `find`, heredocs, `|`, `;`, `&&`; `.harness/` se
    lee con `read`, no con `glob`.
-5. Si es `repair`: la ruta del informe fallido y sus motivos.
+6. Si es `repair`: la ruta del informe fallido y sus motivos.
 
 Mínimos: `tdd_craftsman` debe escribir `progress/tdd_<name>.md` (mapa
 `R<n> → @sN → test`); `judge` debe escribir
@@ -195,7 +198,11 @@ puertas humanas son `/architecture`, `/spec` y `/approve`.
 ## Cierre
 
 1. `./init.sh` verde.
-2. `python3 harness/bin/harness.py validate` verde.
+2. `python3 harness/bin/harness.py validate` verde. Si imprime `[WARN]`,
+   corrígelo antes de cerrar (típico: `progress/current.md` sin la feature
+   activa).
 3. Si la feature terminó: `set <id> done`.
-4. Actualiza `progress/current.md`; al cerrar la sesión, mueve el resumen a
-   `progress/history.md` y deja la plantilla.
+4. Actualiza `progress/current.md` durante el trabajo y deja la plantilla al
+   cerrar. Añade el resumen de cierre a `progress/history.md` con
+   `python3 harness/bin/harness.py note --history "<resumen>"` — nunca lo
+   reescribas con `write`.

@@ -13,7 +13,7 @@ método no dependa del lenguaje ni del harness:
 
 ## Estado de esta versión
 
-**Versión 0.5.0 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 completos.**
+**Versión 0.6.0 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 + F4 completos.**
 
 - ✅ F0: máquina de estados ejecutable (`harness/bin/harness.py`).
 - ✅ F1: core neutro, perfil `python-unittest` y `bootstrap.py`.
@@ -28,8 +28,11 @@ método no dependa del lenguaje ni del harness:
   `tools/clean.sh` y `harness/bin/run_verb.py`); el arnés sigue en el host.
 - ✅ F3.5: rol `architect` y fase `architecture`; `next` no abre la primera
   feature mientras `docs/architecture.md` conserve un `TODO`.
-- ⏳ F4: perfil Go.
-- ⏳ F5: adapter Claude Code.
+- ✅ F4: correcciones de la prueba de campo: gate del informe TDD, fase
+  `repair`, ronda medida por informe/código/tests, `note --history`
+  append-only y avisos de `validate`.
+- ⏳ F5: perfil Go.
+- ⏳ F6: adapter Claude Code.
 
 El adapter `generic` sigue disponible para cualquier harness que lea
 `AGENTS.md`. El adapter `opencode` es el recomendado: expone los roles como
@@ -153,7 +156,7 @@ python3 harness/bin/harness.py next [--json]
 python3 harness/bin/harness.py set <id> <status> [--force]
 python3 harness/bin/harness.py approve <id> [--by NAME]
 python3 harness/bin/harness.py block <id> "razón"
-python3 harness/bin/harness.py note "texto"
+python3 harness/bin/harness.py note "texto" [--history]
 python3 harness/bin/harness.py validate [--verify]
 ```
 
@@ -327,13 +330,14 @@ antiguos de `build`, `test`, `mutation` y `clean` (guíate por
 python3 -m unittest discover -s harness-kit/selftest -v
 ```
 
-131 tests cubren:
+173 tests cubren:
 
 - Transiciones válidas e inválidas, `--force`, `blocked_reason`.
 - Aprobación por hash, normalización de formato, invalidación al editar.
 - `set done` sin judge, sin mutación, con score bajo, con tasks abiertas y
   con `verify` roto.
-- `validate` (duplicados, dos `in_progress`, aprobaciones caducadas).
+- `validate` (duplicados, dos `in_progress`, aprobaciones caducadas,
+  avisos de `current.md` desincronizado e informes TDD heredados).
 - Scaffold completo, `./init.sh` verde, `status`, `next`, `check`, `render`
   idempotente y preservación de artefactos del proyecto.
 - Perfil en Compose: layout con `compose.yaml`/`Dockerfile`/`tools/clean.sh`,

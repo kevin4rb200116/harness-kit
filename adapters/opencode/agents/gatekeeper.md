@@ -41,8 +41,9 @@ solo `harness.py approve`. Fase `approval`; no escribes archivos.
 python3 harness/bin/harness.py approve <id>
 ```
 
-5. Repite la salida: escenarios aprobados y SHA-256. Si el comando falla,
-   muestra el error y **no** intentes arreglarlo; devuélvelo al humano.
+5. Repite la salida: escenarios aprobados y SHA-256, y termina con
+   `leído: <archivos>`. Si el comando falla, muestra el error y **no**
+   intentes arreglarlo; devuélvelo al humano.
 
 ## Shell
 

@@ -50,5 +50,6 @@ permiso. `glob` no ve directorios ocultos; si necesitas una ruta de
 
 ## Salida
 
-Devuelve **una sola línea**: ruta del `.feature` y número de escenarios.
+Devuelve **una sola línea**: ruta del `.feature` y número de escenarios, y
+termina con `leído: <archivos>`.
 Después el lead detiene el flujo para la aprobación humana.

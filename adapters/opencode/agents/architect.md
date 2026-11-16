@@ -46,6 +46,7 @@ Solo puedes editar `{{DOCS_ARCHITECTURE}}`. No toques specs de feature,
 
 ## Cierre
 
-Comprueba que no queda ningún `TODO`. Resume las decisiones en 5 líneas y
-pide al humano que vuelva al `craftsman_lead` y ejecute `/next`. Entonces la
-fase `architecture` se cierra y arranca la spec de la primera feature.
+Comprueba que no queda ningún `TODO`. Resume las decisiones en 5 líneas,
+termina con `leído: <archivos>` y pide al humano que vuelva al
+`craftsman_lead` y ejecute `/next`. Entonces la fase `architecture` se
+cierra y arranca la spec de la primera feature.

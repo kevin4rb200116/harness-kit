@@ -65,7 +65,8 @@ Lecturas: `harness/process/mutation-testing.md` y
    - `{{PATHS_STATE}}/reports/mutation_<name>.json` — machine-readable.
    - `{{PATHS_PROGRESS}}/mutation_<name>.md` — informe humano con
      supervivientes.
-5. Devuelve **una sola línea**: `PASS`/`FAIL` y `score`.
+5. Devuelve **una sola línea**: `PASS`/`FAIL`, `score` y
+   `leído: <archivos>`.
 
 ## JSON obligatorio
 

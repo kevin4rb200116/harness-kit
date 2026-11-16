@@ -7,8 +7,8 @@
 Lee `AGENTS.md` y `harness/process/workflow.md`. Herramientas: `read`,
 `glob` y `grep`; shell solo `harness.py` (`status`, `next`, `set`, `block`,
 `note`, `validate`) y `./init.sh`, nunca `approve` ni `--force`. Coordinas
-todas las fases y escribes solo `progress/current.md` y
-`progress/history.md`.
+todas las fases y escribes solo `progress/current.md`; `progress/history.md`
+es append-only y se alimenta con `harness.py note --history`.
 
 ## Misión
 
@@ -136,13 +136,15 @@ debajo del umbral). No relances `judge` ni `mutation_tester` antes de que
 el TDD haya reparado y reescrito su informe.
 
 Contrato anti-teléfono-descompuesto: **los artefactos van a disco**; el
-subagente devuelve una sola línea de resumen. El lead lee el disco, no
-parafrasea el informe.
+subagente devuelve una sola línea de resumen que termina con
+`leído: <archivos>`. El lead lee el disco, no parafrasea el informe.
 
 ## Cierre de sesión
 
 1. `./init.sh` verde.
-2. `harness.py validate` verde.
+2. `harness.py validate` verde; atiende los `[WARN]` (típico:
+   `progress/current.md` sin la feature activa).
 3. Si la feature terminó, `harness.py set <id> done`.
-4. Resume la sesión en `progress/current.md`; al cerrar, muévela a
-   `progress/history.md`.
+4. Deja `progress/current.md` con la plantilla. Añade el resumen de cierre
+   a `progress/history.md` con `harness.py note --history "<resumen>"`;
+   nunca lo reescribas.

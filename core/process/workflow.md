@@ -121,12 +121,13 @@ Cuando el `judge` rechaza o la mutación queda por debajo del umbral:
 2. El lead relanza `tdd_craftsman` con ese motivo; no lanza `judge` ni
    `mutation_tester` todavía.
 3. El TDD corrige tests/código y **reescribe** `progress/tdd_<name>.md`.
-4. Al ser el informe más reciente que el veredicto, `next` vuelve a
-   `judge`; tras aprobar, vuelve a `mutation`.
+4. Al ser la ronda más reciente que el veredicto, `next` vuelve a `judge`;
+   tras aprobar, vuelve a `mutation`.
 
-El informe TDD es, por tanto, el epoch de la ronda: si no se reescribe,
-el pipeline no avanza. No se baja el umbral ni se edita el mutador para
-salir del bucle.
+La ronda se mide por lo más reciente entre el informe TDD, `src/` y
+`tests/`: cualquier cambio de código o de test caduca el veredicto, aunque
+el artesano olvide reescribir el informe. Los `__pycache__` no cuentan. No
+se baja el umbral ni se edita el mutador para salir del bucle.
 
 Tope: **3 rondas de reparación**. Si la cuarta vuelve a fallar, el lead
 bloquea la feature (`harness.py block <id> "reparación sin converger"`) y
@@ -169,8 +170,10 @@ python3 harness/bin/harness.py validate         # coherencia global
 ## Cierre de sesión
 
 1. `./init.sh` verde.
-2. `harness.py validate` verde.
+2. `harness.py validate` verde; atiende los `[WARN]` (por ejemplo,
+   `progress/current.md` sin la feature activa).
 3. Si la feature terminó: `harness.py set <id> done`.
-4. Mueve el resumen de `progress/current.md` al final de
-   `progress/history.md` y deja `current.md` con la plantilla.
+4. Deja `current.md` con la plantilla. Añade el resumen de cierre a
+   `progress/history.md` con `harness.py note --history "<resumen>"`:
+   el historial es append-only y no se reescribe.
 5. No dejes archivos temporales, `print()` de debug ni TODOs sin contexto.

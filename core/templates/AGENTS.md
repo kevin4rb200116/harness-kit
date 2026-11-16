@@ -36,6 +36,7 @@ brief no coinciden, para y reporta la discrepancia.
 | `python3 harness/bin/harness.py status` | agentes | estado, aprobaciones e informes |
 | `python3 harness/bin/harness.py validate` | agentes | coherencia en disco |
 | `python3 harness/bin/harness.py set <id> <estado>` | rol dueño | transición de estado |
+| `python3 harness/bin/harness.py note --history "<texto>"` | lead | bitácora append-only |
 | `python3 harness/bin/harness.py approve <id>` | gatekeeper | puerta humana |
 | `{{COMMAND_TEST}}` | agentes | suite de tests |
 | `{{COMMAND_VERIFY}}` | agentes | verificación del arnés |
@@ -90,4 +91,8 @@ no son paradas: las recorre el lead. El humano solo usa `/architecture`,
   `feature_list.json`.
 - Cada rol escribe solo sus artefactos; si falta uno, se relanza al
   responsable.
-- Documenta la sesión en `{{PATHS_PROGRESS}}/current.md` mientras trabajas.
+- Cierra tu turno con `leído: <archivos>`: el humano comprueba así que
+  abriste el contexto que tu rol exige.
+- Documenta la sesión en `{{PATHS_PROGRESS}}/current.md` mientras trabajas;
+  `{{PATHS_PROGRESS}}/history.md` es append-only y se añade con
+  `python3 harness/bin/harness.py note --history "<resumen>"`.

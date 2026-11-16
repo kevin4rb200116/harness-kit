@@ -126,6 +126,9 @@ El código de salida ya lo devuelve la herramienta: no uses `echo $?`.
 
 - No edites el `.feature`, `requirements.md`, `design.md`,
   `feature_list.json` ni los informes del judge o de mutación.
+- No mutiles producción para probar un test: muta el `mutation_tester`. Si
+  lo haces a mano, cambio mínimo, revertido en la misma llamada y sin
+  `replaceAll`.
 - No añadas dependencias externas sin una decisión en `design.md`.
 - No dejes tests `skip`, comentados ni `print()` de debug.
 - No declares la feature terminada: eso lo decide `set done`.
@@ -133,4 +136,5 @@ El código de salida ya lo devuelve la herramienta: no uses `echo $?`.
 
 ## Salida
 
-Devuelve **una sola línea**: tests verdes y tasks completadas.
+Devuelve **una sola línea**: tests verdes, tasks completadas y
+`leído: <archivos>`.

@@ -122,6 +122,8 @@ class BootstrapTest(unittest.TestCase):
             "docker compose run --rm app python3 tools/mutate.py", agents
         )
         self.assertIn("/next", agents)
+        self.assertIn("note --history", agents)
+        self.assertIn("leído:", agents)
         self.assertNotIn("{{", agents)
 
     def test_config_reflects_profile(self) -> None:

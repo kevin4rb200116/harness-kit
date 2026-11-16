@@ -138,6 +138,13 @@ class OpenCodeAdapterTest(unittest.TestCase):
             self.assertIn("## Entrada", text, f"{name} sin punto de entrada")
             self.assertIn("AGENTS.md", text, f"{name} no remite a AGENTS.md")
 
+    def test_agents_report_what_they_read(self) -> None:
+        self.assert_ok(self.init())
+        for name in AGENTS:
+            text = self.agent(name)
+            self.assertIn("leído:", text, f"{name} no pide evidencia de lectura")
+        self.assertIn("note --history", self.agent("craftsman_lead"))
+
     def test_project_roles_share_the_entry_point(self) -> None:
         self.assert_ok(self.init())
         roles = sorted((self.target / "harness" / "roles").glob("*.md"))
@@ -153,7 +160,7 @@ class OpenCodeAdapterTest(unittest.TestCase):
         self.assert_ok(self.init())
         text = frontmatter(self.agent("craftsman_lead"))
         self.assertIn('resource: "progress/current.md"', text)
-        self.assertIn('resource: "progress/history.md"', text)
+        self.assertNotIn('resource: "progress/history.md"', text)
         self.assertIn("python3 harness/bin/harness.py status *", text)
         self.assertIn("python3 harness/bin/harness.py set *", text)
         self.assertIn("python3 harness/bin/harness.py validate *", text)
