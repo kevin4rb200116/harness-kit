@@ -17,8 +17,12 @@ Diseño:
   contenido de strings ni comentarios: solo operadores, palabras clave,
   números y sentencias `return`.
 - Descarta los mutantes que no compilan (no inflan la puntuación).
-- Restaura SIEMPRE el archivo original, incluso ante Ctrl-C (bloque
-  `finally`).
+- Restaura SIEMPRE el archivo original **y su mtime**, incluso ante Ctrl-C
+  (bloque `finally`). Si el mutador dejara el mtime cambiado, `harness.py`
+  creería que el TDD abrió una ronda nueva y el veredicto del judge
+  caducaría sin motivo.
+- Rechaza archivos de tests (`tests/`, `test_*.py`): mutar la suite no
+  prueba nada sobre la producción y ensucia la puntuación.
 
 Ver `harness/process/mutation-testing.md`.
 """
@@ -26,9 +30,11 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import subprocess
 import sys
 import tokenize
+from pathlib import Path
 
 # Mutaciones de operador: token OP -> reemplazo.
 OP_MUTATIONS = {
@@ -145,6 +151,22 @@ def run_tests() -> bool:
     return result.returncode == 0
 
 
+TEST_DIR_NAMES = {"test", "tests"}
+
+
+def is_test_path(path: str) -> bool:
+    """True si la ruta parece un archivo de tests; el mutador no debe tocarlos."""
+    candidate = Path(path)
+    parts = {part.lower() for part in candidate.parts}
+    name = candidate.name.lower()
+    return (
+        bool(parts & TEST_DIR_NAMES)
+        or name.startswith("test_")
+        or name.endswith("_test.py")
+        or name == "conftest.py"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Prueba de mutación mínima.")
     parser.add_argument("path", help="Archivo de código a mutar (normalmente bajo src/).")
@@ -152,8 +174,18 @@ def main(argv: list[str] | None = None) -> int:
                         help="Máximo de mutantes a evaluar (default 100).")
     args = parser.parse_args(argv)
 
+    if is_test_path(args.path):
+        print(
+            f"[FAIL] {args.path} parece un archivo de tests. El mutador solo "
+            "muta código de producción (src/): mutar los tests no demuestra "
+            "nada y ensucia la puntuación.",
+            file=sys.stderr,
+        )
+        return 2
+
     with open(args.path, "r", encoding="utf-8") as f:
         original = f.read()
+    original_stat = os.stat(args.path)
     lines = original.splitlines(keepends=True)
 
     # Cordura: la suite debe estar VERDE antes de mutar.
@@ -190,6 +222,12 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         with open(args.path, "w", encoding="utf-8") as f:
             f.write(original)
+        # Conserva el mtime original: el harness mide la ronda de TDD por el
+        # mtime de src/ y tests/, y un restore sin utime caducaría el judge.
+        os.utime(
+            args.path,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
 
     total = len(valid)
     score = (len(killed) / total * 100) if total else 100.0
