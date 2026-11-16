@@ -489,10 +489,12 @@ class Project:
 
         if target == "spec_ready" and sdd:
             errors.extend(self.spec_errors(feature))
+            errors.extend(self.project_spec_errors())
 
         if target == "in_progress":
             if sdd:
                 errors.extend(self.spec_errors(feature))
+                errors.extend(self.project_spec_errors())
             errors.extend(self.feature_errors(feature))
             approval_status, _ = self.approval_state(feature)
             if approval_status != "valid":
@@ -548,6 +550,22 @@ class Project:
                 errors.append(
                     f"score de mutación {mutation.get('score')} < umbral {threshold:g}"
                 )
+            if (
+                judge is not None
+                and str(judge.get("verdict", "")).upper() == "APPROVED"
+                and self.tdd_is_newer_than(feature, "judge")
+            ):
+                errors.append(
+                    "el informe del judge es de una ronda anterior; vuelve a juzgar"
+                )
+            if (
+                mutation is not None
+                and str(mutation.get("verdict", "")).upper() == "PASS"
+                and self.tdd_is_newer_than(feature, "mutation")
+            ):
+                errors.append(
+                    "el informe de mutación es de una ronda anterior; vuelve a mutar"
+                )
             if not errors:
                 ok, output = self.verify()
                 if not ok:
@@ -591,6 +609,21 @@ class Project:
             return True
         return has_todo_marker(path.read_text(encoding="utf-8"))
 
+    def project_spec_path(self) -> Path:
+        return self.root / self.paths["spec"]
+
+    def project_spec_errors(self) -> list[str]:
+        """La spec global debe existir y no conservar marcadores ``TODO``."""
+        path = self.project_spec_path()
+        if not path.is_file():
+            return [f"falta {self.rel(path)}"]
+        if has_todo_marker(path.read_text(encoding="utf-8")):
+            return [f"{self.rel(path)} conserva marcadores TODO: sin resolver"]
+        return []
+
+    def project_spec_pending(self) -> bool:
+        return bool(self.project_spec_errors())
+
     def phase(self, feature: dict) -> str:
         status = self.status(feature)
         if status == "blocked":
@@ -600,7 +633,7 @@ class Project:
                 return "architecture"
             if not self.is_sdd(feature):
                 return "mark_spec_ready"
-            if self.spec_errors(feature):
+            if self.spec_errors(feature) or self.project_spec_pending():
                 return "spec"
             return "mark_spec_ready"
         if status == "spec_ready":
@@ -622,16 +655,18 @@ class Project:
                 if self.tdd_is_newer_than(feature, "judge"):
                     return "judge"
                 return "repair"
+            # Un APPROVED de una ronda anterior no cubre el TDD actual: hay
+            # que volver a juzgar antes de mutar.
+            if self.tdd_is_newer_than(feature, "judge"):
+                return "judge"
             mutation = self.report("mutation", feature)
             if mutation is None:
                 return "mutation"
+            # Un PASS/FAIL viejo tampoco sirve: la mutación se repite sobre
+            # el código de la ronda actual.
+            if self.tdd_is_newer_than(feature, "mutation"):
+                return "mutation"
             if not self.mutation_ok(mutation):
-                if self.tdd_is_newer_than(feature, "judge"):
-                    # El TDD reparó después del judge: hay que volver a juzgar.
-                    return "judge"
-                if self.tdd_is_newer_than(feature, "mutation"):
-                    # El judge ya re-aprobó: la mutación es de la ronda anterior.
-                    return "mutation"
                 return "repair"
             return "done"
         if status == "done":
@@ -774,6 +809,15 @@ def phase_hints(project: Project, feature: dict, phase: str) -> list[str]:
                 "Implementa tasks.md y cierra el informe TDD antes de judge.",
                 "Relanza tdd_craftsman y exige reescribir",
                 "progress/tdd_<name>.md con el mapa R<n> → @sN → test.",
+                *[f"- {hole}" for hole in holes],
+            ]
+    elif phase == "spec":
+        holes = project.spec_errors(feature) + project.project_spec_errors()
+        if holes:
+            hints = [
+                "Conversa la spec con el humano y escribe project-spec.md (sin",
+                "TODO:) y specs/<name>/{requirements,design,tasks}.md (EARS).",
+                "Huecos detectados:",
                 *[f"- {hole}" for hole in holes],
             ]
     elif phase == "repair":
@@ -1076,6 +1120,15 @@ def validate_project(
         errors.append(
             f"hay {in_progress} features en in_progress (máximo 1); "
             "una sola feature a la vez"
+        )
+
+    if project.project_spec_pending() and any(
+        project.status(feature) not in ("pending", "blocked")
+        for feature in features
+    ):
+        warnings.append(
+            f"{project.rel(project.project_spec_path())} conserva marcadores "
+            "TODO:; el spec_partner debe cerrarlo antes de implementar"
         )
 
     if not (project.root / project.paths["spec"]).is_file():

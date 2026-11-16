@@ -29,6 +29,23 @@ class HarnessCliTest(unittest.TestCase):
         self.root = Path(self._tmp.name) / "project"
         shutil.copytree(FIXTURE, self.root)
         (self.root / "init.sh").chmod(0o755)
+        self.normalize_mtimes()
+
+    def normalize_mtimes(self) -> None:
+        """Deja una ronda coherente: los informes posteriores al TDD.
+
+        Los mtimes del fixture no viajan en git; fijarlos aquí evita que los
+        tests dependan del orden de checkout.
+        """
+        base = 1_700_000_000.0
+        for path in self.root.rglob("*"):
+            if path.is_file() and "__pycache__" not in path.parts:
+                os.utime(path, (base, base))
+        for relative in (
+            ".harness/reports/judge_greet.json",
+            ".harness/reports/mutation_greet.json",
+        ):
+            os.utime(self.root / relative, (base + 100, base + 100))
 
     # -- helpers ---------------------------------------------------------
 
@@ -172,6 +189,36 @@ class HarnessCliTest(unittest.TestCase):
         hints = " ".join(payload["hints"])
         self.assertIn("R<n>", hints)
         self.assertIn("@sN", hints)
+
+    def test_stale_judge_approval_returns_to_judge(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report("mutation", {"verdict": "PASS", "score": 100})
+        self.age_round(-50)
+        self.age(".harness/reports/judge_greet.json", -100)
+        self.age(".harness/reports/mutation_greet.json", -80)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "judge")
+
+    def test_stale_mutation_pass_returns_to_mutation(self) -> None:
+        self.approve()
+        self.write_report("judge", {"verdict": "APPROVED"})
+        self.write_report("mutation", {"verdict": "PASS", "score": 100})
+        self.age_round(-50)
+        self.age(".harness/reports/judge_greet.json", -20)
+        self.age(".harness/reports/mutation_greet.json", -100)
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        self.assertEqual(json.loads(result.stdout)["phase"], "mutation")
+
+    def test_done_rejects_a_stale_judge_report(self) -> None:
+        self.approve()
+        self.age_round(-50)
+        self.age(".harness/reports/judge_greet.json", -100)
+        self.age(".harness/reports/mutation_greet.json", -80)
+        result = self.harness("set", "1", "done")
+        self.assert_fails(result, "ronda anterior")
 
     def test_judge_rejection_enters_repair(self) -> None:
         self.approve()
@@ -322,6 +369,35 @@ class HarnessCliTest(unittest.TestCase):
         result = self.harness("next", "--json")
         self.assert_ok(result)
         self.assertEqual(json.loads(result.stdout)["phase"], "mark_spec_ready")
+
+    def test_next_reports_spec_when_project_spec_has_a_todo(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\nCapas: src/greet.py.\n")
+        (self.root / "project-spec.md").write_text(
+            "# Project spec\n\nTODO: propósito del proyecto\n", encoding="utf-8"
+        )
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "spec")
+        self.assertIn("TODO", " ".join(payload["hints"]))
+
+    def test_spec_ready_rejects_a_pending_project_spec(self) -> None:
+        self.set_raw_status("pending")
+        (self.root / "project-spec.md").write_text(
+            "# Project spec\n\nTODO: propósito del proyecto\n", encoding="utf-8"
+        )
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "project-spec.md", "TODO")
+
+    def test_validate_warns_about_a_pending_project_spec(self) -> None:
+        self.approve()
+        (self.root / "project-spec.md").write_text(
+            "# Project spec\n\nTODO: propósito del proyecto\n", encoding="utf-8"
+        )
+        result = self.harness("validate")
+        self.assert_ok(result)
+        self.assertIn("TODO", result.stdout + result.stderr)
 
     def test_next_does_not_mistake_the_word_todo_for_a_marker(self) -> None:
         self.set_raw_status("pending")
