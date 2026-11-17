@@ -13,7 +13,7 @@ método no dependa del lenguaje ni del harness:
 
 ## Estado de esta versión
 
-**Versión 0.6.0 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 + F4 completos.**
+**Versión 0.6.1 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 + F4 + F4.1 completos.**
 
 - ✅ F0: máquina de estados ejecutable (`harness/bin/harness.py`).
 - ✅ F1: core neutro, perfil `python-unittest` y `bootstrap.py`.
@@ -31,6 +31,10 @@ método no dependa del lenguaje ni del harness:
 - ✅ F4: correcciones de la prueba de campo: gate del informe TDD, fase
   `repair`, ronda medida por informe/código/tests, `note --history`
   append-only y avisos de `validate`.
+- ✅ F4.1: segunda prueba de campo: veredictos frescos (judge/mutation se
+  repiten si la ronda TDD cambió), `judge` independiente de la mutación,
+  mutación solo de producción con mtime restaurado y puerta de
+  `project-spec.md` sin `TODO`.
 - ⏳ F5: perfil Go.
 - ⏳ F6: adapter Claude Code.
 
