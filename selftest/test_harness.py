@@ -218,7 +218,15 @@ class HarnessCliTest(unittest.TestCase):
         self.age(".harness/reports/judge_greet.json", -100)
         self.age(".harness/reports/mutation_greet.json", -80)
         result = self.harness("set", "1", "done")
-        self.assert_fails(result, "ronda anterior")
+        self.assert_fails(result, "informe del judge")
+
+    def test_done_rejects_a_stale_mutation_report(self) -> None:
+        self.approve()
+        self.age_round(-50)
+        self.age(".harness/reports/judge_greet.json", -20)
+        self.age(".harness/reports/mutation_greet.json", -100)
+        result = self.harness("set", "1", "done")
+        self.assert_fails(result, "informe de mutación")
 
     def test_judge_rejection_enters_repair(self) -> None:
         self.approve()
