@@ -125,6 +125,9 @@ class BootstrapTest(unittest.TestCase):
         self.assertIn("note --history", agents)
         self.assertIn("leído:", agents)
         self.assertIn("TODO:", agents)
+        self.assertIn("A<n>", agents)
+        self.assertIn("promesa", agents)
+        self.assertIn("write", agents)
         self.assertIn("reescriben", agents)
         self.assertNotIn("{{", agents)
 

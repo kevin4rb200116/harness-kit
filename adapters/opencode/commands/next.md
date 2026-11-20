@@ -10,6 +10,8 @@ Actúa como `craftsman_lead`.
 2. Ejecuta `python3 harness/bin/harness.py next --json`.
 3. Lee `progress/current.md` y, si hace falta contexto, el `.feature` o la
    spec de la feature activa.
+4. El `leído:` de un rol es una promesa, no una prueba: antes de aceptar
+   una fase, comprueba el artefacto en disco; `next` es la evidencia.
 
 Responde con:
 

@@ -17,6 +17,7 @@ pending
   │  architecture    architect cierra docs/architecture.md (solo la primera vez)
   │  spec            spec_partner escribe project-spec.md +
   │                  specs/<name>/{requirements,design,tasks}.md
+  │                  con la cobertura A<n> → R<n> completa
   ▼
 spec_ready  ◄── set <id> spec_ready
   │  gherkin         gherkin_author destila requirements.md en .feature
@@ -36,6 +37,17 @@ done        ◄── set <id> done
 Cualquier estado puede pasar a `blocked` con una razón. `blocked → pending`
 se permite para reanudar. El resto de transiciones exige `--force` y debe
 quedar justificado en `progress/current.md`.
+
+## Escritura y evidencia
+
+Las fases de conversación (`architecture`, `spec`) cierran con artefactos en
+disco, no con prosa en el chat. El rol crea el esqueleto al empezar, lo
+actualiza al cerrar cada decisión y, antes de terminar, usa `write`/`edit` y
+relee el archivo con `read`. Si no hubo escritura, la fase no está cerrada.
+
+`leído:` es una promesa del rol, no una prueba. El lead comprueba el
+artefacto con `harness.py next`/`validate` antes de aceptar la fase; una
+sesión nueva reconstruye el contexto de los archivos, no del transcript.
 
 ### Paradas y transiciones
 

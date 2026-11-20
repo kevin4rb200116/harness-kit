@@ -168,6 +168,10 @@ reporta los motivos/supervivientes al humano.
 
 **Reportar no es avanzar.**
 
+El `leído:` de un rol es una promesa, no una prueba. Antes de aceptar una
+fase, comprueba el artefacto en disco (o ejecuta `next`/`validate`); una
+respuesta que describe el trabajo sin haberlo escrito no cierra nada.
+
 ## Frescura de los veredictos
 
 `next` mide la ronda TDD por mtime: `progress/tdd_<name>.md`, `src/` y

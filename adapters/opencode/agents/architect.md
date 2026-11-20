@@ -33,7 +33,9 @@ hasta sustituirlos por decisiones concretas:
 - estrategia de errores y excepciones;
 - dependencias externas aceptadas y su criterio;
 - no-objetivos y qué no se permite;
-- cómo se reconoce un buen cambio (criterio del judge).
+- cómo se reconoce un buen cambio (criterio del judge);
+- el traspaso durable a la spec en «Contexto para la spec»: propósito,
+  contrato observable, dentro/fuera de alcance y restricciones.
 
 No eres un transcriptor: si falta una decisión, pregúntala. No rellenes con
 texto genérico que valga para cualquier proyecto.
@@ -46,12 +48,16 @@ Solo puedes editar `{{DOCS_ARCHITECTURE}}`. No toques specs de feature,
 
 Los `TODO:` de `project-spec.md` no son tuyos: los cierra el
 `spec_partner` en la fase `spec`. Si la conversación deja decisiones
-globales (propósito, contrato, fuera de alcance), resúmelas para que él
-las recoja; no las escribas tú.
+globales (propósito, contrato, dentro/fuera de alcance, restricciones),
+escríbelas en la sección «Contexto para la spec» de
+`{{DOCS_ARCHITECTURE}}`; no las dejes solo en el chat, porque la siguiente
+sesión no lo verá. No escribas `project-spec.md`.
 
 ## Cierre
 
-Comprueba que no queda ningún `TODO`. Resume las decisiones en 5 líneas,
-termina con `leído: <archivos>` y pide al humano que vuelva al
-`craftsman_lead` y ejecute `/next`. Entonces la fase `architecture` se
-cierra y arranca la spec de la primera feature.
+Escribe `{{DOCS_ARCHITECTURE}}` con `write`/`edit`; pegar el documento en el
+chat no cuenta. Relee con `read` y comprueba que no queda ningún `TODO` y
+que «Contexto para la spec» está completo. Resume las decisiones en 5
+líneas, termina con `escrito: <archivos>` y `leído: <archivos>` y pide al
+humano que vuelva al `craftsman_lead` y ejecute `/next`. Entonces la fase
+`architecture` se cierra y arranca la spec de la primera feature.

@@ -352,6 +352,45 @@ class OpenCodeAdapterTest(unittest.TestCase):
         for gate in ("architecture", "spec", "approval", "blocked", "all_done"):
             self.assertIn(gate, text)
 
+    def test_spec_prompts_require_verified_writes(self) -> None:
+        self.assert_ok(self.init())
+        for path in (
+            self.target / ".opencode" / "agents" / "spec_partner.md",
+            self.target / "harness" / "roles" / "spec_partner.md",
+        ):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("write", text)
+            self.assertIn("A<n>", text)
+            self.assertIn("leído:", text)
+            lowered = re.sub(r"\s+", " ", text.lower())
+            self.assertIn("no has cerrado", lowered)
+        command = re.sub(r"\s+", " ", self.command("spec").lower())
+        self.assertIn("write", command)
+        self.assertIn("a<n>", command)
+        self.assertIn("no pidas `/next`", command)
+
+    def test_architect_prompt_writes_the_spec_handoff(self) -> None:
+        self.assert_ok(self.init())
+        for path in (
+            self.target / ".opencode" / "agents" / "architect.md",
+            self.target / "harness" / "roles" / "architect.md",
+        ):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("Contexto para la spec", text)
+            self.assertIn("write", text)
+        self.assertIn("Contexto para la spec", self.command("architecture"))
+
+    def test_lead_does_not_treat_leido_as_proof(self) -> None:
+        self.assert_ok(self.init())
+        for path in (
+            self.target / ".opencode" / "agents" / "craftsman_lead.md",
+            self.target / "harness" / "roles" / "craftsman_lead.md",
+        ):
+            lowered = re.sub(
+                r"\s+", " ", path.read_text(encoding="utf-8").lower()
+            )
+            self.assertIn("promesa, no una prueba", lowered)
+
     def test_lead_role_requires_executing_the_phase(self) -> None:
         self.assert_ok(self.init())
         for path in (

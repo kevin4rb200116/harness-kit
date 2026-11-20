@@ -20,6 +20,18 @@
 5. **Funciones pequeñas.** Una función hace una cosa y se puede leer de
    arriba abajo.
 
+## Contexto para la spec
+
+> Traspaso durable al `spec_partner`: si una decisión no está aquí ni en
+> `project-spec.md`, no existe para la siguiente sesión.
+
+- **Propósito:** TODO: qué construye el proyecto y para quién.
+- **Contrato observable:** TODO: CLI/HTTP/librería/UI y qué se mide.
+- **Dentro del alcance:** TODO.
+- **Fuera del alcance:** TODO.
+- **Restricciones que la spec debe respetar:** TODO: decisiones de esta
+  conversación que afectan a los requisitos.
+
 ## Fronteras
 
 TODO: qué puede importar cada módulo. Por ejemplo, la UI no importa detalles

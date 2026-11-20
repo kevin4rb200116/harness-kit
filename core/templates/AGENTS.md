@@ -83,6 +83,13 @@ no son paradas: las recorre el lead. El humano solo usa `/architecture`,
 - Una sola feature `in_progress`; se trabaja la no cerrada de menor `id`.
 - No hay primera feature sin `{{DOCS_ARCHITECTURE}}` sin `TODO`.
 - No hay `spec_ready` ni `in_progress` con `{{PATHS_SPEC}}` en `TODO:`.
+- No hay `spec_ready` sin la tabla `A<n> → R<n>` completa en
+  `{{PATHS_SPECS}}/<name>/requirements.md`; cada `R<n>` debe aparecer en
+  `design.md` y `tasks.md`.
+- Los roles de conversación cierran con `write`/`edit` y una relectura.
+  Pegar el contenido en el chat no cierra la fase.
+- El `leído:` es una promesa, no una prueba: la evidencia es el artefacto
+  en disco; el lead ejecuta `next`/`validate` antes de aceptar la fase.
 - No hay código sin test rojo; no hay implementación sin `.feature` aprobado.
 - No hay `judge` sin `{{PATHS_PROGRESS}}/tdd_<name>.md` con el mapa
   `R<n> → @sN → test`.

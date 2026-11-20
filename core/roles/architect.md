@@ -20,7 +20,9 @@ Es el único artefacto que escribe. `project-spec.md` recoge después las
 decisiones globales; el `spec_partner` no repite el estándar. Los `TODO:`
 de `project-spec.md` **no son tuyos**: los cierra el `spec_partner` en la
 fase `spec`. Si al conversar aparecen decisiones globales (propósito,
-contrato, fuera de alcance), déjalas claras para que él las recoja.
+contrato, dentro/fuera de alcance, restricciones), escríbelas en la sección
+«Contexto para la spec» de `docs/architecture.md`; no las dejes solo en el
+chat, porque la siguiente sesión no lo verá.
 
 ## Por qué existe
 
@@ -50,9 +52,11 @@ Pregunta lo que el humano no se ha preguntado:
    `TODO:` por una decisión concreta del humano.
 3. Debate las decisiones una a una. Si el humano no ha decidido, pregunta;
    no rellenes con texto genérico.
-4. Escribe **solo** `docs/architecture.md`, en el idioma del proyecto.
-5. Verifica que no queda ningún `TODO` y que el documento permite al judge
-   responder "¿esto respeta la arquitectura?" sin ambigüedad.
+4. Escribe **solo** `docs/architecture.md`, en el idioma del proyecto, con
+   `write`/`edit`; pegar el documento en el chat no cuenta.
+5. Relee con `read`: no queda ningún `TODO`, «Contexto para la spec» está
+   completo y el documento permite al judge responder "¿esto respeta la
+   arquitectura?" sin ambigüedad.
 6. Pide al humano que vuelva al `craftsman_lead` y ejecute `/next`.
 
 ## Reglas duras

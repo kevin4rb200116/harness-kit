@@ -1,7 +1,9 @@
 # Spec — conversación, EARS y los tres archivos
 
 > La spec no se transcribe: se **debate**. El valor del `spec_partner` está
-> en las preguntas incómodas, no en rellenar una plantilla.
+> en las preguntas incómodas, no en rellenar una plantilla. La conversación
+> parte de «Contexto para la spec» en `docs/architecture.md`; si esa sección
+> falta o sigue en `TODO:`, se pregunta antes de inventar.
 
 ## De la conversación al contrato
 
@@ -19,7 +21,11 @@ Para cada feature, el humano y el `spec_partner` cierran estas decisiones:
 
 La conversación termina cuando cada criterio de `acceptance` de
 `feature_list.json` se puede expresar como un requisito EARS y observarse en
-un escenario.
+un escenario. La primera mitad de la cadena se cierra con una tabla
+`A<n> → R<n>` en `requirements.md`: `A1..An` son los criterios de
+`acceptance` en orden. `harness.py` no deja pasar a `spec_ready` si falta un
+`A<n>`, si una fila no apunta a ningún `R<n>` o si un `R<n>` no aparece en
+`design.md` y `tasks.md`.
 
 ## Estructura
 
@@ -78,6 +84,21 @@ Pasos discretos, en orden, cada uno con checkbox y los `R<n>` que cubre:
 
 El `tdd_craftsman` marca `[x]` al terminar cada task. `set done` falla si
 queda alguna `[ ]` sin justificación documentada.
+
+## Escritura y evidencia
+
+- Al abrir la fase, crea ya los cuatro archivos (`project-spec.md` y
+  `specs/<name>/{requirements,design,tasks}.md`) con la plantilla y sus
+  `TODO:`. Actualízalos en cuanto cierres cada decisión: un corte de sesión
+  debe dejar un parcial con `TODO:`, no cero.
+- El entregable son los archivos, no el texto del chat. No pegues el
+  contenido como sustituto de `write`/`edit`; si no hubo escritura, la fase
+  no está cerrada.
+- Antes de cerrar, relee (`read`) los cuatro archivos y confirma que no
+  queda `TODO:`, que la tabla `A<n> → R<n>` cubre todos los `acceptance` y
+  que cada `R<n>` aparece en `design.md` y `tasks.md`.
+- `leído:` es una promesa del rol, no una prueba. La evidencia es el
+  archivo en disco y la salida de `harness.py next`/`validate`.
 
 ## La puerta
 
