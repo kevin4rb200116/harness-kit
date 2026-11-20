@@ -13,7 +13,7 @@ método no dependa del lenguaje ni del harness:
 
 ## Estado de esta versión
 
-**Versión 0.6.1 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 + F4 + F4.1 completos.**
+**Versión 0.6.2 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 + F4 + F4.1 + F4.2 completos.**
 
 - ✅ F0: máquina de estados ejecutable (`harness/bin/harness.py`).
 - ✅ F1: core neutro, perfil `python-unittest` y `bootstrap.py`.
@@ -35,8 +35,18 @@ método no dependa del lenguaje ni del harness:
   repiten si la ronda TDD cambió), `judge` independiente de la mutación,
   mutación solo de producción con mtime restaurado y puerta de
   `project-spec.md` sin `TODO`.
+- ✅ F4.2: cierre con escritura verificada y cobertura de acceptance:
+  `spec_partner` crea los esqueletos y escribe con `write`/`edit` (pegar en
+  el chat no cierra la fase), `harness.py` exige la tabla `A<n> → R<n>` y
+  cada `R<n>` en `design.md`/`tasks.md`, y `docs/architecture.md` incluye
+  «Contexto para la spec» como traspaso durable entre sesiones.
 - ⏳ F5: perfil Go.
 - ⏳ F6: adapter Claude Code.
+
+> **Migración 0.6.1 → 0.6.2.** Una feature en `spec_ready` o `in_progress`
+> debe añadir la tabla `A<n> → R<n>` en `requirements.md` y citar cada
+> `R<n>` en `design.md` y `tasks.md`. En features ya `done` la falta de
+> cobertura solo se avisa en `validate`, para no romper proyectos cerrados.
 
 El adapter `generic` sigue disponible para cualquier harness que lea
 `AGENTS.md`. El adapter `opencode` es el recomendado: expone los roles como
