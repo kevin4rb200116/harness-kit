@@ -2,8 +2,8 @@
 
 ## Archivos
 
-- `src/greet.py`: `def greet(name: str) -> str`.
-- `tests/test_greet.py`: un test por requirement.
+- `src/greet.py`: `def greet(name: str) -> str` (R1, R2).
+- `tests/test_greet.py`: un test por requirement (R1, R2).
 
 ## Alternativa descartada
 

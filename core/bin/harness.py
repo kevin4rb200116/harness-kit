@@ -129,6 +129,14 @@ def requirements(text: str) -> list[str]:
     return sorted(set(re.findall(r"\bR\d+\b", text)), key=lambda r: int(r[1:]))
 
 
+def acceptance_ids(feature: dict) -> list[str]:
+    """IDs estables de los criterios de acceptance: A1..An por orden."""
+    acceptance = feature.get("acceptance", [])
+    if not isinstance(acceptance, list):
+        return []
+    return [f"A{index}" for index in range(1, len(acceptance) + 1)]
+
+
 def tasks_count(text: str) -> int:
     return len(re.findall(r"(?m)^\s*[-*]\s+\[[ xX]\]", text))
 
@@ -299,7 +307,53 @@ class Project:
             return None
         return path.read_text(encoding="utf-8")
 
-    def spec_errors(self, feature: dict) -> list[str]:
+    def spec_coverage_errors(self, feature: dict) -> list[str]:
+        """Cierra la cadena acceptance → R<n> → design/tasks.
+
+        La tabla ``A<n> → R<n>`` vive en ``requirements.md``; ``A<n>`` es el
+        criterio n de ``acceptance`` en ``feature_list.json``. Sin esta
+        comprobación una spec puede existir, tener R<n> y aun así no cubrir
+        lo que el humano pidió.
+        """
+        req_path = self.spec_path(feature, "requirements.md")
+        design_path = self.spec_path(feature, "design.md")
+        tasks_path = self.spec_path(feature, "tasks.md")
+        if not req_path.is_file():
+            return []
+        req_text = req_path.read_text(encoding="utf-8")
+        errors: list[str] = []
+        ids = acceptance_ids(feature)
+        if not ids:
+            errors.append(
+                f"feature {feature.get('id')} sin 'acceptance': "
+                "no hay criterio que cubrir"
+            )
+        for aid in ids:
+            pattern = re.compile(rf"\b{aid}\b")
+            lines = [line for line in req_text.splitlines() if pattern.search(line)]
+            if not lines:
+                errors.append(
+                    f"{self.rel(req_path)} no cubre {aid} "
+                    "(falta la tabla A<n> → R<n>)"
+                )
+            elif not any(re.search(r"\bR\d+\b", line) for line in lines):
+                errors.append(
+                    f"{self.rel(req_path)}: {aid} no apunta a ningún R<n>"
+                )
+        for rid in requirements(req_text):
+            if design_path.is_file() and not re.search(
+                rf"\b{rid}\b", design_path.read_text(encoding="utf-8")
+            ):
+                errors.append(f"{self.rel(design_path)} no menciona {rid}")
+            if tasks_path.is_file() and not re.search(
+                rf"\b{rid}\b", tasks_path.read_text(encoding="utf-8")
+            ):
+                errors.append(f"{self.rel(tasks_path)} no menciona {rid}")
+        return errors
+
+    def spec_errors(
+        self, feature: dict, require_coverage: bool = True
+    ) -> list[str]:
         errors: list[str] = []
         for filename in SPEC_FILES:
             path = self.spec_path(feature, filename)
@@ -310,6 +364,8 @@ class Project:
             found = requirements(req_path.read_text(encoding="utf-8"))
             if not found:
                 errors.append(f"{self.rel(req_path)} no contiene ningún R<n>")
+            elif require_coverage:
+                errors.extend(self.spec_coverage_errors(feature))
         tasks_path = self.spec_path(feature, "tasks.md")
         if tasks_path.is_file():
             text = tasks_path.read_text(encoding="utf-8")
@@ -750,6 +806,8 @@ PHASE_HINTS = {
     "spec": [
         "Conversa la spec con el humano y escribe project-spec.md y",
         "specs/<name>/{requirements,design,tasks}.md (EARS, R<n>, T<n>).",
+        "Cada acceptance (A1..An) debe aparecer en requirements.md apuntando",
+        "al menos a un R<n>; cada R<n> debe estar en design.md y tasks.md.",
         "Después: python3 harness/bin/harness.py set <id> spec_ready",
     ],
     "mark_spec_ready": [
@@ -1092,8 +1150,22 @@ def validate_project(
                     validate_reports(project, feature, fid, name)
                 )
             continue
-        if status in ("spec_ready", "in_progress", "done"):
-            errors.extend(f"feature {fid} ({name}): {e}" for e in project.spec_errors(feature))
+        if status in ("spec_ready", "in_progress"):
+            errors.extend(
+                f"feature {fid} ({name}): {e}"
+                for e in project.spec_errors(feature)
+            )
+        if status == "done":
+            # Compatibilidad: un proyecto ya cerrado no tiene por qué
+            # reescribir sus specs antiguas; la cobertura A→R se avisa.
+            errors.extend(
+                f"feature {fid} ({name}): {e}"
+                for e in project.spec_errors(feature, require_coverage=False)
+            )
+            warnings.extend(
+                f"feature {fid} ({name}): cobertura heredada: {e}"
+                for e in project.spec_coverage_errors(feature)
+            )
         if status in ("in_progress", "done"):
             errors.extend(f"feature {fid} ({name}): {e}" for e in project.feature_errors(feature))
             approval_status, _ = project.approval_state(feature)

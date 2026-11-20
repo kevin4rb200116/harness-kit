@@ -7,7 +7,7 @@
 ## La cadena
 
 ```
-acceptance (feature_list.json)
+acceptance A<n> (feature_list.json)
    │  cada criterio se convierte en…
    ▼
 R<n> (specs/<name>/requirements.md)
@@ -23,13 +23,25 @@ test (tests del proyecto)
 
 | Eslabón | Quién | Cómo |
 |---|---|---|
-| `acceptance → R<n>` | `spec_partner` | Cada criterio citado en requirements |
+| `A<n> → R<n>` | `spec_partner` | Tabla de cobertura en `requirements.md` |
+| `R<n> → design/tasks` | `spec_partner` | Cada `R<n>` citado en ambos archivos |
 | `R<n> → @sN` | `gherkin_author` | Tabla de trazabilidad en el `.feature` |
 | `@sN → test` | `tdd_craftsman` | Mapa en `progress/tdd_<name>.md` |
 | Cadena completa | `judge` | Revisa los tres mapas y ejecuta la suite |
 | Los tests muerden | `mutation_tester` | Mutación sobre el código de la feature |
 
 ## Formato del mapa
+
+En `specs/<name>/requirements.md`:
+
+```markdown
+| Acceptance | Requisitos |
+|---|---|
+| A1 | R1 |
+| A2 | R2, R3 |
+```
+
+`A<n>` es el criterio n de `acceptance` en `feature_list.json`, en orden.
 
 En `features/<name>.feature`:
 
@@ -57,11 +69,17 @@ En `progress/tdd_<name>.md`:
 - [x] T2 — ...
 ```
 
-`harness.py next` no pasa a `judge` si el informe falta o no contiene al
-menos un `R<n>`, un `@sN` y una referencia a un test.
+`harness.py next` no pasa a `spec_ready` si falta la cobertura `A<n> → R<n>`
+o si un `R<n>` no aparece en `design.md`/`tasks.md`. Tampoco pasa a `judge`
+si el informe TDD falta o no contiene al menos un `R<n>`, un `@sN` y una
+referencia a un test.
 
 ## Reglas
 
+- Todo `A<n>` de `feature_list.json` aparece en la tabla de cobertura y
+  apunta al menos a un `R<n>`. `harness.py` falla si falta.
+- Todo `R<n>` aparece en `design.md` y `tasks.md`; un requisito huérfano de
+  diseño o de tarea no pasa la puerta de `spec_ready`.
 - Un `R<n>` puede cubrirse con varios `@sN`; un `@sN` puede verificar varios
   `R<n>`. Lo que no se permite es un requisito o un escenario huérfano.
 - Un `@sN` sin test es un escenario decorativo: el judge rechaza.

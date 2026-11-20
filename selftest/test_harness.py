@@ -542,6 +542,93 @@ class HarnessCliTest(unittest.TestCase):
         self.assert_ok(self.harness("set", "1", "spec_ready"))
         self.assertEqual(self.feature()["status"], "spec_ready")
 
+    def test_spec_ready_rejects_missing_acceptance_coverage(self) -> None:
+        self.set_raw_status("pending")
+        (self.root / "specs" / "greet" / "requirements.md").write_text(
+            "# Requirements — greet\n\n## R1\n...\n\n## R2\n...\n",
+            encoding="utf-8",
+        )
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "A1", "no cubre")
+
+    def test_spec_ready_rejects_an_uncovered_acceptance(self) -> None:
+        self.set_raw_status("pending")
+        data = self.read_json("feature_list.json")
+        data["features"][0]["acceptance"].append(
+            "greet('Bob') devuelve 'Hello, Bob!'"
+        )
+        self.write_json("feature_list.json", data)
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "A2", "no cubre")
+
+    def test_spec_ready_rejects_a_feature_without_acceptance(self) -> None:
+        self.set_raw_status("pending")
+        data = self.read_json("feature_list.json")
+        data["features"][0]["acceptance"] = []
+        self.write_json("feature_list.json", data)
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "sin 'acceptance'")
+
+    def test_spec_ready_rejects_an_acceptance_without_requirement(self) -> None:
+        self.set_raw_status("pending")
+        (self.root / "specs" / "greet" / "requirements.md").write_text(
+            "# Requirements — greet\n\n"
+            "| Acceptance | Requisitos |\n|---|---|\n| A1 | pendiente |\n\n"
+            "## R1\n...\n\n## R2\n...\n",
+            encoding="utf-8",
+        )
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "A1", "no apunta")
+
+    def test_validate_rejects_missing_coverage_in_progress(self) -> None:
+        self.approve()
+        (self.root / "specs" / "greet" / "requirements.md").write_text(
+            "# Requirements — greet\n\n## R1\n...\n\n## R2\n...\n",
+            encoding="utf-8",
+        )
+        result = self.harness("validate")
+        self.assert_fails(result, "no cubre", "A1")
+
+    def test_spec_ready_requires_every_requirement_in_design(self) -> None:
+        self.set_raw_status("pending")
+        (self.root / "specs" / "greet" / "design.md").write_text(
+            "# Design — greet\n\nR1 vive en src/greet.py.\n", encoding="utf-8"
+        )
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "design.md", "R2")
+
+    def test_spec_ready_requires_every_requirement_in_tasks(self) -> None:
+        self.set_raw_status("pending")
+        (self.root / "specs" / "greet" / "tasks.md").write_text(
+            "# Tasks — greet\n\n- [ ] T1 — greet (R1)\n", encoding="utf-8"
+        )
+        result = self.harness("set", "1", "spec_ready")
+        self.assert_fails(result, "tasks.md", "R2")
+
+    def test_validate_warns_about_legacy_acceptance_coverage(self) -> None:
+        self.approve()
+        self.set_raw_status("done")
+        (self.root / "specs" / "greet" / "requirements.md").write_text(
+            "# Requirements — greet\n\n## R1\n...\n\n## R2\n...\n",
+            encoding="utf-8",
+        )
+        result = self.harness("validate")
+        self.assert_ok(result)
+        self.assertIn("cobertura heredada", result.stdout.lower())
+
+    def test_next_spec_hints_mention_acceptance_coverage(self) -> None:
+        self.set_raw_status("pending")
+        self.write_architecture("# Arquitectura\n\nCapas: src/greet.py.\n")
+        (self.root / "specs" / "greet" / "requirements.md").write_text(
+            "# Requirements — greet\n\n## R1\n...\n\n## R2\n...\n",
+            encoding="utf-8",
+        )
+        result = self.harness("next", "--json")
+        self.assert_ok(result)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["phase"], "spec")
+        self.assertIn("A1", " ".join(payload["hints"]))
+
     def test_in_progress_requires_approval(self) -> None:
         result = self.harness("set", "1", "in_progress")
         self.assert_fails(result, "aprobación", "approve")
