@@ -341,10 +341,10 @@ antiguos de `build`, `test`, `mutation` y `clean` (guíate por
 ## Selftests del kit
 
 ```bash
-python3 -m unittest discover -s harness-kit/selftest -v
+python3 -m unittest discover -s selftest -v
 ```
 
-173 tests cubren:
+202 tests cubren:
 
 - Transiciones válidas e inválidas, `--force`, `blocked_reason`.
 - Aprobación por hash, normalización de formato, invalidación al editar.
@@ -398,4 +398,4 @@ python3 -m unittest discover -s harness-kit/selftest -v
 - **Los docs del proyecto nacen con `TODO`.** `init.sh` avisa; el humano
   debe completarlos antes de que el judge los use como estándar.
 - **Claude Code** conserva sus `.claude/agents` actuales como referencia
-  hasta F5.
+  hasta F6.

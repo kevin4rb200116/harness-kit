@@ -6,7 +6,7 @@ son las de `harness.py`.
 
 ## 0. Crear el proyecto
 
-Desde `harness-kit/`:
+Desde la raíz del repo del kit:
 
 ```bash
 python3 bootstrap.py init \

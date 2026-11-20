@@ -71,9 +71,6 @@ python3 bootstrap.py check   --target ../mi-proyecto
 
 ## Deuda y pendientes
 
-- `README.md` dice «173 tests cubren»; ya son **202**.
-- `README.md` → «Limitaciones conocidas» dice que Claude Code se conserva
-  «hasta F5»; el adapter es **F6**.
 - F5 (perfil Go) y F6 (adapter Claude Code) sin empezar.
 - `demo-hk` (en `/home/adrian/Workspace/AI/demo-hk`) sigue en **0.6.1**:
   falta el `upgrade` a 0.6.2 y la feature `sha256sum` con `hello` ya
