@@ -9,7 +9,7 @@ son las de `harness.py`.
 Desde la raíz del repo del kit:
 
 ```bash
-python3 bootstrap.py init \
+python3 src/bootstrap.py init \
   --target ../demo-opencode \
   --profile python-unittest \
   --adapter opencode \

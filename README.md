@@ -11,6 +11,31 @@ método no dependa del lenguaje ni del harness:
 | **Adapter** | Harness: cómo se exponen los roles y comandos | `harness/adapters/<id>` |
 | **Proyecto** | Spec, estado, features, informes, código | raíz del proyecto |
 
+## Layout del repositorio
+
+El payload del kit vive bajo `src/`; la raíz solo contiene documentación y
+la bitácora:
+
+```
+harness-kit/
+├── README.md
+├── AGENTS.md
+├── progress/history.md
+└── src/
+    ├── bootstrap.py
+    ├── VERSION
+    ├── config/
+    ├── core/
+    ├── profiles/
+    ├── adapters/
+    └── selftest/
+```
+
+Los comandos se ejecutan desde la raíz del repo, por ejemplo
+`python3 src/bootstrap.py init ...`. `bootstrap.py` resuelve sus rutas
+desde su propio directorio, así que el payload puede moverse en bloque sin
+tocar el código.
+
 ## Estado de esta versión
 
 **Versión 0.6.2 — F0 + F1 + F2 + F2.1 + F2.2 + F3 + F3.5 + F4 + F4.1 + F4.2 completos.**
@@ -63,7 +88,7 @@ mutación corren en la imagen.
 cd harness-kit
 
 # 2. Genera un proyecto nuevo (adapter recomendado: OpenCode)
-python3 bootstrap.py init \
+python3 src/bootstrap.py init \
   --target ../mi-proyecto \
   --profile python-unittest \
   --adapter opencode \
@@ -228,7 +253,7 @@ los agentes built-in de OpenCode. Es intencional: el arnés no quiere que un
 agente built-in esquive la puerta. Ajusta `opencode.jsonc` si necesitas
 otra cosa.
 
-Si `opencode.jsonc` ya existía, `bootstrap.py render` conserva tus claves y
+Si `opencode.jsonc` ya existía, `src/bootstrap.py render` conserva tus claves y
 añade las reglas globales que falten sin duplicarlas. Los comentarios
 propios no sobreviven a la normalización.
 
@@ -291,13 +316,13 @@ de `./init.sh`.
 
 ## Añadir un perfil
 
-1. Crea `profiles/<id>/profile.json` con `paths`, los cinco verbos
+1. Crea `src/profiles/<id>/profile.json` con `paths`, los cinco verbos
    (`check`, `build`, `test`, `mutation`, `clean`), `mutation`,
    `documents`, `scaffold` y `gitignore`. Usa `scaffold.copy` para
    `compose.yaml`/`Dockerfile` y `scaffold.files` para archivos vacíos.
 2. Añade `init.sh`, `tools/` (mutador o wrapper), `docs/` y
    `checkpoints.md`.
-3. Ejecuta `bootstrap.py init --profile <id>` y comprueba que el proyecto
+3. Ejecuta `python3 src/bootstrap.py init --profile <id>` y comprueba que el proyecto
    generado pasa `./init.sh` y `harness.py validate`.
 
 El core no cambia: si un perfil necesita tocar `process/` o `roles/`, la
@@ -305,12 +330,12 @@ abstracción está mal y hay que corregirla.
 
 ## Añadir un adapter
 
-1. Crea `adapters/<id>/` con un `adapter.json` que declare qué carpetas se
+1. Crea `src/adapters/<id>/` con un `adapter.json` que declare qué carpetas se
    renderizan (`{"source": "agents", "target": ".opencode/agents"}`), qué
    fragmento de configuración se fusiona y sus valores `{{...}}`.
 2. Añade los archivos de agentes, comandos y el `README.md` con las
    capacidades declaradas (subagentes, permisos por rol, hooks).
-3. Ejecuta `bootstrap.py init --adapter <id>` y valida que los roles siguen
+3. Ejecuta `python3 src/bootstrap.py init --adapter <id>` y valida que los roles siguen
    apuntando a `harness/process/` y a `harness.py`.
 
 El adapter **no cambia el método**: solo lo expone. Los archivos generados
@@ -320,7 +345,7 @@ los obsoletos, pero respeta los que no llevan marca.
 ## Actualizar un proyecto
 
 ```bash
-python3 bootstrap.py render --target ../mi-proyecto
+python3 src/bootstrap.py render --target ../mi-proyecto
 ```
 
 Reemplaza `harness/`, `init.sh`, `tools/`, `.opencode/` y fusiona
@@ -335,13 +360,13 @@ se crean los del nuevo.
 Desde 0.4.0 el perfil Python usa Docker Compose. `render` **no pisa**
 `harness.config.json`: si vienes de 0.3.x, cambia a mano los valores
 antiguos de `build`, `test`, `mutation` y `clean` (guíate por
-`config/harness.config.example.json`). `render` sí restaura `compose.yaml`,
+`src/config/harness.config.example.json`). `render` sí restaura `compose.yaml`,
 `Dockerfile` y `tools/clean.sh` si faltan, y no toca los que ya existan.
 
 ## Selftests del kit
 
 ```bash
-python3 -m unittest discover -s selftest -v
+python3 -m unittest discover -s src/selftest -v
 ```
 
 202 tests cubren:
